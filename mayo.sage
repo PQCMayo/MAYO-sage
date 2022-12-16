@@ -58,10 +58,11 @@ DEFAULT_PARAMETERS = {
 
 def decode_vec(t):
     t = [(t[i//2]>>i%2*4)&0xf for i in range(2*len(t))]
-    return vector(map(F16, t))
+    return vector(map(F16.fetch_int, t))
 
 def decode_mat(t, m, rows, columns, triangular):
     t = decode_vec(t)
+
     t = list(t[::-1])
     if triangular:
         As = [matrix(F16, rows, columns) for _ in range(m)]
@@ -77,6 +78,37 @@ def decode_mat(t, m, rows, columns, triangular):
                     As[k][i,j] = t.pop()
     return As
 
+def encode_mat(mat, m, rows, columns, triangular):
+    if triangular:
+        els = []
+        for i in range(rows):
+            for j in range(i, columns):
+                for k in range(m):
+                    els += [mat[k][i,j]]
+
+        if len(els) % 2 == 1:
+            els += [F16(0)]
+
+        bs = []
+        for i in range(len(els)/2):
+            bs += [els[i*2].integer_representation() | (els[i*2+1].integer_representation() << 4)]
+        return bytes(bs)
+    else:
+        els = []
+        for i in range(rows):
+            for j in range(columns):
+                for k in range(m):
+                    els += [mat[k][i,j]]
+
+        if len(els) % 2 == 1:
+            els += [F16(0)]
+
+        bs = []
+        for i in range(len(els)/2):
+            bs += [els[i*2].integer_representation() | (els[i*2+1].integer_representation() << 4)]
+        return bytes(bs)
+
+
 class MAYO:
     def __init__(self, parameter_set):
         self.random_bytes = os.urandom
@@ -87,7 +119,6 @@ class MAYO:
         self.q = parameter_set["q"]
 
         self.f = parameter_set["f"]
-        print(self.f)
 
         self.fx = R.quotient_ring(self.f)
 
@@ -107,7 +138,9 @@ class MAYO:
 
         self.sig_bytes = math.ceil(self.n * self.q_bytes) + self.salt_bytes
         self.epk_bytes = self.P1_bytes + self.P2_bytes + self.P3_bytes
-        self.pk_bytes = self.P3_bytes + self.pk_seed_bytes
+        self.cpk_bytes = self.P3_bytes + self.pk_seed_bytes
+        self.csk_bytes = self.sk_seed_bytes
+        self.esk_bytes = self.sk_seed_bytes + self.O_bytes + self.P1_bytes + self.P2_bytes
 
         assert self.q == 16
 
@@ -120,43 +153,75 @@ class MAYO:
 
         seed_sk = self.random_bytes(self.sk_seed_bytes)                                      # seed_sk = B^sk_seed_bytes
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
-        self.seed_pk = s[:self.pk_seed_bytes]
+        seed_pk = s[:self.pk_seed_bytes]
 
         o = decode_mat(s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes], 1, self.n-self.o, self.o, triangular=False)[0]
 
-        p = shake_256(seed_sk).digest(int(self.P1_bytes + self.P2_bytes))
+        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
         p1 = decode_mat(p[:self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
         p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.n-self.o, self.o, triangular=False)
 
+        p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
+        for i in range(self.m):
+            p3[i] = - o.transpose()*p1[i]*o - o.transpose()*p2[i]
+            # Upper
+            for j in range(1,self.o):
+                for k in range(j-1):
+                    p3[i][k,j] += p3[i][j,k]
+                    p3[i][j,k] = 0
 
-        return 0
+        cpk = seed_pk + encode_mat(p3, self.m, self.o, self.o, triangular=True)
+        csk = seed_sk
+        return csk, cpk
 
-    def expand_sk():
+    def expand_sk(self, csk):
         """
         takes as input csk, the compact representation of a secret key, and outputs sk \in B^{sk_bytes},
         an expanded representation of the secret key
         """
-        return 0
+        assert len(csk) == self.csk_bytes
 
-    def expand_pk(cpk):
+        seed_sk = csk
+        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
+        seed_pk = s[:self.pk_seed_bytes]
+
+        o = decode_mat(s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes], 1, self.n-self.o, self.o, triangular=False)[0]
+
+        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+
+        p1 = decode_mat(p[:self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
+        p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.n-self.o, self.o, triangular=False)
+
+        l = [matrix(F16, self.n-self.o, self.o) for _ in range(self.m)]
+        for i in range(self.m):
+            l[i] = (p1[i] + p1[i].transpose())*o + p2[i]
+
+        esk = seed_sk + encode_mat([o], 1, self.n-self.o, self.o, triangular=False) + encode_mat(p1, self.m, self.n-self.o, self.n-self.o, triangular=True) + encode_mat(l, self.m, self.n-self.o, self.o, triangular=False)
+
+        return esk
+
+    def expand_pk(self, cpk):
         """
         takes as input cpk and outputs pk \in B^{pk_bytes}
         """
+        assert len(cpk) == self.cpk_bytes
+
         seed_pk = cpk[:self.pk_seed_bytes]
         p3 = cpk[self.pk_seed_bytes:]
 
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
-        p1 = decode_mat(p[:self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
-        p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.n-self.o, self.o, triangular=False)
 
-        return 0
+        return p + p3
 
-    def sign():
+    def sign(self, msg, esk):
         """
         takes an expanded secret key sk, a message M \in B^*, and a salt \in B^{salt_bytes} as
         input, and outputs a signature sig \in B^{sig_bytes}
         """
+
+        # salt = self.random_bytes(self.)
+
         return 0
 
     def verify(self, sig, msg, epk):
@@ -235,7 +300,18 @@ class MAYO:
 
 
 MAYO1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])
-MAYO1.compact_key_gen()
+csk, cpk = MAYO1.compact_key_gen()
+print(csk.hex(), cpk.hex())
+
+assert len(csk) == MAYO1.csk_bytes
+assert len(cpk) == MAYO1.cpk_bytes
+
+epk = MAYO1.expand_pk(cpk)
+assert len(epk) == MAYO1.epk_bytes
+
+esk = MAYO1.expand_sk(csk)
+assert len(esk) == MAYO1.esk_bytes
+
 
 
 VERSION = "MAYO-00"
