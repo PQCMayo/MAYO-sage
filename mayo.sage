@@ -36,8 +36,8 @@ DEFAULT_PARAMETERS = {
     },
 }
 
-F16.<y> = GF(16)
-assert y^4+y+1 == 0
+F16.<x> = GF(16)
+assert x^4+x+1 == 0
 
 
 def decode_vec(t):
@@ -71,6 +71,7 @@ class MAYO:
         self.q = parameter_set["q"]
 
         self.q_bytes = (math.log(self.q,2)/8)
+        self.m_bytes = math.ceil(self.q_bytes*self.m)
 
         self.O_bytes = math.ceil((self.n - self.o)*self.o*self.q_bytes)
         self.v_bytes = math.ceil((self.n - self.o)*self.q_bytes)
@@ -133,15 +134,21 @@ class MAYO:
         assert len(epk) == self.epk_bytes
 
         salt = sig[:self.salt_bytes]
-        sig = decode_vec(sig[self.salt_bytes])
+        sig = sig[self.salt_bytes:]
 
-        p1 = epk[:self.P1_bytes]
-        p2 = epk[self.P1_bytes:self.P1_bytes+self.P2_bytes]
-        p3 = epk[self.P1_bytes+self.P2_bytes:]
+        p1 = decode_mat(epk[:self.P1_bytes], self.m, self.m, self.m, triangular=True)
+        p2 = decode_mat(epk[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.m, self.o, triangular=False)
+        p3 = decode_mat(epk[self.P1_bytes+self.P2_bytes:], self.m, self.o, self.o, triangular=True)
 
+        t = decode_vec(shake_256(msg + salt).digest(self.m_bytes))
+        s = decode_vec(sig)
 
+        s = [s[i*self.n:(i+1)*self.n] for i in range(k)]
 
-        pass
+        ell = 0
+        for i in range(k):
+            for j in range(i, k):
+                pass
 
     def open(self, sm, epk):
         """
