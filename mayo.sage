@@ -20,7 +20,7 @@ from hashlib import shake_256
 
 F16.<x> = GF(16)
 assert x^4+x+1 == 0
-
+R.<y> = F16[]
 # import itertools
 # F.<x> = GF(16)
 # R.<y> = F[]
@@ -63,7 +63,6 @@ def decode_vec(t):
 def decode_mat(t, m, rows, columns, triangular):
     t = decode_vec(t)
     t = list(t[::-1])
-
     if triangular:
         As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
@@ -86,9 +85,11 @@ class MAYO:
         self.o = parameter_set["o"]
         self.k = parameter_set["k"]
         self.q = parameter_set["q"]
+
         self.f = parameter_set["f"]
-        fx.<y> = F16[].quotient_ring(self.f)
-        self.fx = fx
+        print(self.f)
+
+        self.fx = R.quotient_ring(self.f)
 
         self.q_bytes = (math.log(self.q,2)/8)
         self.m_bytes = math.ceil(self.q_bytes*self.m)
@@ -121,7 +122,7 @@ class MAYO:
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         self.seed_pk = s[:self.pk_seed_bytes]
 
-        o = decode_mat(s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes], self.m, self.m, self.o, triangular=False)
+        o = decode_mat(s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes], 1, self.n-self.o, self.o, triangular=False)[0]
 
         p = shake_256(seed_sk).digest(int(self.P1_bytes + self.P2_bytes))
 
