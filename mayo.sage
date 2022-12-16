@@ -18,6 +18,22 @@ from hashlib import shake_256
 # pk: 9616 B, sig: 150 B, vt: 2032128, (n,m,o,k,q): (84, 64, 24, 3, 16)
 # pk: 21328 B, sig: 131 B, vt: 1465472, (n,m,o,k,q): (107, 64, 36, 2, 16)
 
+F16.<x> = GF(16)
+assert x^4+x+1 == 0
+
+# import itertools
+# F.<x> = GF(16)
+# R.<y> = F[]
+# m = 72
+# for c0 in F:
+#     if c0 in ZZ:
+#         continue
+#     f0 = y^m + c0
+#     for w in range(1,3):
+#         for js in itertools.combinations(list(range(1,m)), w):
+#             f = f0 + sum(y^j for j in js)
+#             if f.is_irreducible():
+#                 print(f)
 
 DEFAULT_PARAMETERS = {
     "mayo_1": {
@@ -26,6 +42,7 @@ DEFAULT_PARAMETERS = {
         "o": 5,
         "k": 16,
         "q": 16,
+        "f" : y^72 + y^5 + y^3 + x
     },
     "mayo_2": {
         "n": 68,
@@ -33,11 +50,10 @@ DEFAULT_PARAMETERS = {
         "o": 6,
         "k": 13,
         "q": 16,
+        "f" : y^69 + y^40 + x
     },
 }
 
-F16.<x> = GF(16)
-assert x^4+x+1 == 0
 
 
 def decode_vec(t):
@@ -62,7 +78,6 @@ def decode_mat(t, m, rows, columns, triangular):
                     As[k][i,j] = t.pop()
     return As
 
-
 class MAYO:
     def __init__(self, parameter_set):
         self.random_bytes = os.urandom
@@ -71,6 +86,9 @@ class MAYO:
         self.o = parameter_set["o"]
         self.k = parameter_set["k"]
         self.q = parameter_set["q"]
+        self.f = parameter_set["f"]
+        fx.<y> = F16[].quotient_ring(self.f)
+        self.fx = fx
 
         self.q_bytes = (math.log(self.q,2)/8)
         self.m_bytes = math.ceil(self.q_bytes*self.m)
@@ -155,9 +173,24 @@ class MAYO:
         s = [s[i*self.n:(i+1)*self.n] for i in range(k)]
 
         ell = 0
-        for i in range(k):
-            for j in range(i, k):
-                pass
+        y = vector(F16, m)
+        for i in range(self.k):
+            for j in range(i, self.k):
+                for a in range(self.m):
+                    u = vector(F16, m)
+                    if i == j:
+                        p = block_matrix([[p1[a], p2[a]],[matrix(F16, self.o, self.m), p3[a]]])
+                    else:
+                        p = block_matrix([[p1[a] + p1[a].transpose(), p2[a]],[p2[a].transpose(), p3[a]+p3[a].transpose()]])
+                    u[a] = s[i].transpose() * p * s[j]
+
+                # convert to polynomial
+                u = self.fx(u)
+
+                y = y + vector(y^ell * u)
+                ell = ell + 1
+        return y == t
+
 
     def open(self, sm, epk):
         """
@@ -170,9 +203,9 @@ class MAYO:
         sig = sm[:self.sig_bytes]
         msg = sm[self.sig_bytes:]
 
-        rc = self.verify(sig, msg, epk)
+        valid = self.verify(sig, msg, epk)
 
-        if rc == 0:
+        if valid:
             return rc, msg
         else:
             return rc, None
