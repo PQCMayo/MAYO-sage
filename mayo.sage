@@ -46,7 +46,8 @@ def decode_vec(t):
 
 def decode_mat(t, m, rows, columns, triangular):
     t = decode_vec(t)
-    t = t[::-1]
+    t = list(t[::-1])
+
     if triangular:
         As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
@@ -59,6 +60,7 @@ def decode_mat(t, m, rows, columns, triangular):
             for j in range(columns):
                 for k in range(m):
                     As[k][i,j] = t.pop()
+    return As
 
 
 class MAYO:
@@ -97,9 +99,16 @@ class MAYO:
         """
         # F16.<y> = GF(16)
 
-        seed_sk = self.random_bytes(sk_seed_bytes)                                      # seed_sk = B^sk_seed_bytes
-        S = shake_256(seed_sk).digest(int(pk_seed_bytes + self.O_bytes))                # S = SHAKE256(seed_sk , pk_seed_bytes + O_bytes)
-        self.seed_pk = S[0: pk_seed_bytes]                                              # seed_pk = S[0 : pk_seed_bytes]
+        seed_sk = self.random_bytes(self.sk_seed_bytes)                                      # seed_sk = B^sk_seed_bytes
+        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
+        self.seed_pk = s[:self.pk_seed_bytes]
+
+        o = decode_mat(s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes], self.m, self.m, self.o, triangular=False)
+
+        p = shake_256(seed_sk).digest(int(self.P1_bytes + self.P2_bytes))
+
+        p1 = decode_mat(p[:self.P1_bytes], self.m, self.m, self.m, triangular=True)
+        p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.m, self.o, triangular=False)
 
 
         return 0
@@ -185,7 +194,7 @@ class MAYO:
 
 
 MAYO1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])
-MAYO1.CompactKeyGen()
+MAYO1.compact_key_gen()
 
 
 VERSION = "MAYO-00"
