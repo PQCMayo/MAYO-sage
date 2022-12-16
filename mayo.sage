@@ -39,6 +39,28 @@ DEFAULT_PARAMETERS = {
 F16.<y> = GF(16)
 assert y^4+y+1 == 0
 
+
+def decode_vec(t):
+    t = [(t[i//2]>>i%2*4)&0xf for i in range(2*len(t))]
+    return vector(map(F16, t))
+
+def decode_mat(t, m, rows, columns, triangular):
+    t = decode_vec(t)
+    t = t[::-1]
+    if triangular:
+        As = [matrix(F16, rows, columns) for _ in range(m)]
+        for i in range(rows):
+            for j in range(i+1):
+                for k in range(m):
+                    As[k][i,j] = t.pop()
+    else:
+        As = [matrix(F16, rows, columns) for _ in range(m)]
+        for i in range(rows):
+            for j in range(columns):
+                for k in range(m):
+                    As[k][i,j] = t.pop()
+
+
 class MAYO:
     def __init__(self, parameter_set):
         self.random_bytes = os.urandom
@@ -62,6 +84,10 @@ class MAYO:
         self.salt_bytes = 16
 
         self.sig_bytes = math.ceil(self.n * self.q_bytes) + self.salt_bytes
+        self.epk_bytes = self.P1_bytes + self.P2_bytes + self.P3_bytes
+        self.pk_bytes = self.P3_bytes + self.pk_seed_bytes
+
+        assert self.q == 16
 
     def compact_key_gen(self):
         """
@@ -97,18 +123,27 @@ class MAYO:
         """
         return 0
 
-    def verify(self, sig, msg, pk):
+    def verify(self, sig, msg, epk):
         """
         takes as input a message M , an expanded
         public key pk, a signature sig outputs 1 (invalid) or 0 (valid)
         """
+
+        assert len(sig) == self.sig_bytes
+        assert len(epk) == self.epk_bytes
+
         salt = sig[:self.salt_bytes]
-        sig = sig[self.salt_bytes]
+        sig = decode_vec(sig[self.salt_bytes])
+
+        p1 = epk[:self.P1_bytes]
+        p2 = epk[self.P1_bytes:self.P1_bytes+self.P2_bytes]
+        p3 = epk[self.P1_bytes+self.P2_bytes:]
+
 
 
         pass
 
-    def open(self, sm, pk):
+    def open(self, sm, epk):
         """
         takes as input a signed message sm sm, an expanded
         public key pk and outputs 1 (invalid) or 0 (valid)
@@ -119,7 +154,7 @@ class MAYO:
         sig = sm[:self.sig_bytes]
         msg = sm[self.sig_bytes:]
 
-        rc = self.verify(sig, msg, pk)
+        rc = self.verify(sig, msg, epk)
 
         if rc == 0:
             return rc, msg
