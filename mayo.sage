@@ -96,9 +96,9 @@ class MAYO:
 
         self.O_bytes = math.ceil((self.n - self.o)*self.o*self.q_bytes)
         self.v_bytes = math.ceil((self.n - self.o)*self.q_bytes)
-        self.P1_bytes = math.ceil(math.comb((self.m-self.o+1), 2)*self.q_bytes)
+        self.P1_bytes = math.ceil(self.m*math.comb((self.n-self.o+1), 2)*self.q_bytes)
         self.P2_bytes = math.ceil(self.m*(self.n - self.o)*self.o*self.q_bytes)
-        self.P3_bytes = math.ceil(math.comb((self.o+1), 2)*self.q_bytes)
+        self.P3_bytes = math.ceil(self.m*math.comb((self.o+1), 2)*self.q_bytes)
 
 
         self.sk_seed_bytes = 32
@@ -126,8 +126,8 @@ class MAYO:
 
         p = shake_256(seed_sk).digest(int(self.P1_bytes + self.P2_bytes))
 
-        p1 = decode_mat(p[:self.P1_bytes], self.m, self.m, self.m, triangular=True)
-        p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.m, self.o, triangular=False)
+        p1 = decode_mat(p[:self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
+        p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.n-self.o, self.o, triangular=False)
 
 
         return 0
@@ -139,10 +139,17 @@ class MAYO:
         """
         return 0
 
-    def expand_pk():
+    def expand_pk(cpk):
         """
         takes as input cpk and outputs pk \in B^{pk_bytes}
         """
+        seed_pk = cpk[:self.pk_seed_bytes]
+        p3 = cpk[self.pk_seed_bytes:]
+
+        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+        p1 = decode_mat(p[:self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
+        p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.n-self.o, self.o, triangular=False)
+
         return 0
 
     def sign():
