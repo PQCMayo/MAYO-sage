@@ -3,7 +3,7 @@
 
 # import sys
 from hashlib import shake_256
-from Crypto.Cipher import AES
+#from Crypto.Cipher import AES
 
 # SL1 options: sk_seed_bytes = 32, pk_seed_bytes = 16, salt_bytes = 16
 # pk: 556 B, sig: 568 B, vt: 42614784, (n,m,o,k,q): (68, 72, 5, 16, 16)
@@ -18,9 +18,6 @@ from Crypto.Cipher import AES
 # pk: 9616 B, sig: 150 B, vt: 2032128, (n,m,o,k,q): (84, 64, 24, 3, 16)
 # pk: 21328 B, sig: 131 B, vt: 1465472, (n,m,o,k,q): (107, 64, 36, 2, 16)
 
-sk_seed_bytes = 32
-pk_seed_bytes = 16
-salt_bytes = 16
 
 DEFAULT_PARAMETERS = {
     "mayo_1": {
@@ -48,12 +45,21 @@ class MAYO:
         self.o = parameter_set["o"]
         self.k = parameter_set["k"]
         self.q = parameter_set["q"]
-        log_q_8 = (math.log(self.q,2)/8)
-        self.O_bytes = math.ceil((self.n - self.o)*self.o*(log_q_8))
-        self.v_bytes = math.ceil((self.n - self.o)*(log_q_8))
-        self.P1_bytes = math.ceil(math.comb((self.m-self.o+1), 2)*(log_q_8))
-        self.P2_bytes = math.ceil(self.m*(self.n - self.o)*self.o*(log_q_8))
-        self.P3_bytes = math.ceil(math.comb((self.o+1), 2)*(log_q_8))
+
+        self.q_bytes = (math.log(self.q,2)/8)
+
+        self.O_bytes = math.ceil((self.n - self.o)*self.o*self.q_bytes)
+        self.v_bytes = math.ceil((self.n - self.o)*self.q_bytes)
+        self.P1_bytes = math.ceil(math.comb((self.m-self.o+1), 2)*self.q_bytes)
+        self.P2_bytes = math.ceil(self.m*(self.n - self.o)*self.o*self.q_bytes)
+        self.P3_bytes = math.ceil(math.comb((self.o+1), 2)*self.q_bytes)
+
+
+        self.sk_seed_bytes = 32
+        self.pk_seed_bytes = 16
+        self.salt_bytes = 16
+
+        self.sig_bytes = math.ceil(self.n * self.q_bytes) + self.salt_bytes
 
     def CompactKeyGen(self):
         """
@@ -89,17 +95,30 @@ class MAYO:
         """
         return 0
 
-    def Verify():
+    def Verify(self, sig, msg, pk):
         """
         takes as input a message M , an expanded
-        public key pk, a signature sig, and salt and outputs 1 or 0 
+        public key pk, a signature sig outputs 1 or 0
         """
+
+
+
+        pass
+
+    def Open(self, sm, pk):
+        """
+        takes as input a signed message sm sm, an expanded
+        public key pk and outputs 1 or 0
+        """
+
+        mlen = len(sm) - self.sig_bytes
+
         return 0
 
     def SampleSolution():
         """
         takes as input a matrix A \in F_q^{m x n} of rank m with n >= m,
-        a vector y \in F_q^m, and a vector r \in F_q^n 
+        a vector y \in F_q^m, and a vector r \in F_q^n
         and outputs a solution x such that Ax = y
         """
         return 0
