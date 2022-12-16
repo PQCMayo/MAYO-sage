@@ -36,6 +36,8 @@ DEFAULT_PARAMETERS = {
     },
 }
 
+F16.<y> = GF(16)
+assert y^4+y+1 == 0
 
 class MAYO:
     def __init__(self, parameter_set):
@@ -61,7 +63,7 @@ class MAYO:
 
         self.sig_bytes = math.ceil(self.n * self.q_bytes) + self.salt_bytes
 
-    def CompactKeyGen(self):
+    def compact_key_gen(self):
         """
         outputs a pair (csk, cpk) \in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
         are compact representations of a Mayo secret key and public key
@@ -75,47 +77,56 @@ class MAYO:
 
         return 0
 
-    def ExpandSK():
+    def expand_sk():
         """
         takes as input csk, the compact representation of a secret key, and outputs sk \in B^{sk_bytes},
         an expanded representation of the secret key
         """
         return 0
 
-    def ExpandPK():
+    def expand_pk():
         """
         takes as input cpk and outputs pk \in B^{pk_bytes}
         """
         return 0
 
-    def Sign():
+    def sign():
         """
         takes an expanded secret key sk, a message M \in B^*, and a salt \in B^{salt_bytes} as
         input, and outputs a signature sig \in B^{sig_bytes}
         """
         return 0
 
-    def Verify(self, sig, msg, pk):
+    def verify(self, sig, msg, pk):
         """
         takes as input a message M , an expanded
-        public key pk, a signature sig outputs 1 or 0
+        public key pk, a signature sig outputs 1 (invalid) or 0 (valid)
         """
-
+        salt = sig[:self.salt_bytes]
+        sig = sig[self.salt_bytes]
 
 
         pass
 
-    def Open(self, sm, pk):
+    def open(self, sm, pk):
         """
         takes as input a signed message sm sm, an expanded
-        public key pk and outputs 1 or 0
+        public key pk and outputs 1 (invalid) or 0 (valid)
+        and the message if the signature was valid
         """
 
         mlen = len(sm) - self.sig_bytes
+        sig = sm[:self.sig_bytes]
+        msg = sm[self.sig_bytes:]
 
-        return 0
+        rc = self.verify(sig, msg, pk)
 
-    def SampleSolution():
+        if rc == 0:
+            return rc, msg
+        else:
+            return rc, None
+
+    def sample_solution():
         """
         takes as input a matrix A \in F_q^{m x n} of rank m with n >= m,
         a vector y \in F_q^m, and a vector r \in F_q^n
@@ -123,7 +134,7 @@ class MAYO:
         """
         return 0
 
-    def EF():
+    def ef():
         """
         takes as input a matrix B \in F_q^{m x n}
         and outputs a matrix B' \in F_q^{m x n} in echelon form.
