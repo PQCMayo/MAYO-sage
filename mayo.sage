@@ -20,7 +20,7 @@ from hashlib import shake_256
 
 F16.<x> = GF(16)
 assert x^4+x+1 == 0
-R.<y> = F16[]
+R.<z> = F16[]
 # import itertools
 # F.<x> = GF(16)
 # R.<y> = F[]
@@ -42,7 +42,7 @@ DEFAULT_PARAMETERS = {
         "o": 5,
         "k": 16,
         "q": 16,
-        "f" : y^72 + y^5 + y^3 + x
+        "f" : z^72 + z^5 + z^3 + x
     },
     "mayo_2": {
         "n": 68,
@@ -50,18 +50,30 @@ DEFAULT_PARAMETERS = {
         "o": 6,
         "k": 13,
         "q": 16,
-        "f" : y^69 + y^40 + x
+        "f" : z^69 + z^40 + x
     },
 }
 
 
 
-def decode_vec(t):
+def decode_vec(t, l):
     t = [(t[i//2]>>i%2*4)&0xf for i in range(2*len(t))]
-    return vector(map(F16.fetch_int, t))
+    v = vector(map(F16.fetch_int, t))
+
+    if l % 2 == 1:
+        v = v[:-1]
+    return v
+
+def encode_vec(v):
+    assert len(v) % 2 == 0
+    bs = []
+    for i in range(len(v)/2):
+        bs += [v[i*2].integer_representation() | (v[i*2+1].integer_representation() << 4)]
+    return bytes(bs)
+
 
 def decode_mat(t, m, rows, columns, triangular):
-    t = decode_vec(t)
+    t = decode_vec(t, len(t)*2)
 
     t = list(t[::-1])
     if triangular:
@@ -109,6 +121,7 @@ def encode_mat(mat, m, rows, columns, triangular):
         return bytes(bs)
 
 
+
 class MAYO:
     def __init__(self, parameter_set):
         self.random_bytes = os.urandom
@@ -127,6 +140,7 @@ class MAYO:
 
         self.O_bytes = math.ceil((self.n - self.o)*self.o*self.q_bytes)
         self.v_bytes = math.ceil((self.n - self.o)*self.q_bytes)
+        self.r_bytes = math.ceil(self.k*self.o*self.q_bytes)
         self.P1_bytes = math.ceil(self.m*math.comb((self.n-self.o+1), 2)*self.q_bytes)
         self.P2_bytes = math.ceil(self.m*(self.n - self.o)*self.o*self.q_bytes)
         self.P3_bytes = math.ceil(self.m*math.comb((self.o+1), 2)*self.q_bytes)
@@ -136,7 +150,7 @@ class MAYO:
         self.pk_seed_bytes = 16
         self.salt_bytes = 16
 
-        self.sig_bytes = math.ceil(self.n * self.q_bytes) + self.salt_bytes
+        self.sig_bytes = math.ceil(self.k * self.n * self.q_bytes) + self.salt_bytes
         self.epk_bytes = self.P1_bytes + self.P2_bytes + self.P3_bytes
         self.cpk_bytes = self.P3_bytes + self.pk_seed_bytes
         self.csk_bytes = self.sk_seed_bytes
@@ -220,9 +234,61 @@ class MAYO:
         input, and outputs a signature sig \in B^{sig_bytes}
         """
 
-        # salt = self.random_bytes(self.)
+        salt = self.random_bytes(self.salt_bytes)
+        seed_sk = esk[:self.sk_seed_bytes]
+        o = decode_mat(esk[self.sk_seed_bytes:self.sk_seed_bytes + self.O_bytes], 1, self.n-self.o, self.o, triangular=False)[0]
 
-        return 0
+        p1 = decode_mat(esk[self.sk_seed_bytes + self.O_bytes:self.sk_seed_bytes + self.O_bytes + self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
+
+        l = decode_mat(esk[self.sk_seed_bytes + self.O_bytes + self.P1_bytes:], self.m, self.n-self.o, self.o, triangular=False)
+
+        t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
+        # TODO: change back
+        for ctr in range(4): #range(256):
+            V = shake_256(msg + salt + seed_sk + bytes([ctr])).digest(self.k*self.v_bytes + self.r_bytes)
+
+            v = [vector(F16, self.n-self.o) for _ in range(self.k)]
+            M = [matrix(F16, self.m, self.o) for _ in range(self.k)]
+            for i in range(self.k):
+                v[i] = decode_vec(V[i*self.v_bytes:(i+1)*self.v_bytes], self.n-self.o)
+                for j in range(self.m):
+                    M[i][j,:] = v[i]*l[j]
+
+            A = matrix(F16, self.m, self.k*self.o)
+            y = t
+            ell = 0
+            for i in range(self.k):
+                for j in range(i, self.k):
+                    u = vector(F16, self.m)
+                    for a in range(self.m):
+                        if i == j:
+                            u[a] = v[i]*p1[a]*v[j]
+                        else:
+                            u[a] = v[i]*p1[a]*v[j] + v[j]*p1[a]*v[i]
+
+                    # convert to polynomial
+                    u = self.fx(list(u))
+                    y = y - vector(z^ell* u)
+
+                    # TODO: prettify this
+                    xxx = [z^ell * self.fx(M[j][:,a].list()) for a in range(self.o)]
+                    yyy =  matrix([list(v) for v in xxx])
+                    A[:,i*self.o:(i+1)*self.o] = A[:,i*self.o:(i+1)*self.o] + yyy.transpose()
+                    if i != j:
+                       xxx = [z^ell * self.fx(M[i][:,a].list()) for a in range(self.o)]
+                       yyy =  matrix([list(v) for v in xxx])
+                       A[:,j*self.o:(j+1)*self.o] = A[:,j*self.o:(j+1)*self.o] + yyy.transpose()
+                    ell = ell + 1
+
+            r = decode_vec(V[self.k*self.v_bytes:], self.k*self.o)
+            x = self.sample_solution(A, y, r)
+            if x is not None:
+                break
+
+        sig = vector(F16, self.k*self.n)
+        for i in range(self.k):
+            sig[i*self.n:(i+1)*self.n] = vector(list(v[i] + o*x[i*self.o:(i+1)*self.o])+list(x[i*self.o:(i+1)*self.o]))
+        return salt + encode_vec(sig) + bytes(msg)
 
     def verify(self, sig, msg, epk):
         """
@@ -236,31 +302,32 @@ class MAYO:
         salt = sig[:self.salt_bytes]
         sig = sig[self.salt_bytes:]
 
-        p1 = decode_mat(epk[:self.P1_bytes], self.m, self.m, self.m, triangular=True)
-        p2 = decode_mat(epk[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.m, self.o, triangular=False)
+        p1 = decode_mat(epk[:self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
+        p2 = decode_mat(epk[self.P1_bytes:self.P1_bytes+self.P2_bytes], self.m, self.n-self.o, self.o, triangular=False)
         p3 = decode_mat(epk[self.P1_bytes+self.P2_bytes:], self.m, self.o, self.o, triangular=True)
 
-        t = decode_vec(shake_256(msg + salt).digest(self.m_bytes))
-        s = decode_vec(sig)
+        t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
+        s = decode_vec(sig, self.n)
 
-        s = [s[i*self.n:(i+1)*self.n] for i in range(k)]
+        s = [s[i*self.n:(i+1)*self.n] for i in range(self.k)]
 
         ell = 0
-        y = vector(F16, m)
+        y = vector(F16, self.m)
         for i in range(self.k):
             for j in range(i, self.k):
+                u = vector(F16, self.m)
                 for a in range(self.m):
-                    u = vector(F16, m)
                     if i == j:
-                        p = block_matrix([[p1[a], p2[a]],[matrix(F16, self.o, self.m), p3[a]]])
+                        p = block_matrix([[p1[a], p2[a]],[matrix(F16, self.o, self.n-self.o), p3[a]]])
                     else:
                         p = block_matrix([[p1[a] + p1[a].transpose(), p2[a]],[p2[a].transpose(), p3[a]+p3[a].transpose()]])
-                    u[a] = s[i].transpose() * p * s[j]
+                    u[a] = s[i] * p * s[j]
 
                 # convert to polynomial
-                u = self.fx(u)
+                u = self.fx(list(u))
 
-                y = y + vector(y^ell * u)
+                y = y + vector(z^ell * u)
+
                 ell = ell + 1
         return y == t
 
@@ -279,24 +346,25 @@ class MAYO:
         valid = self.verify(sig, msg, epk)
 
         if valid:
-            return rc, msg
+            return valid, msg
         else:
-            return rc, None
+            return valid, None
 
-    def sample_solution():
+    def sample_solution(self, A, y, r):
         """
         takes as input a matrix A \in F_q^{m x n} of rank m with n >= m,
         a vector y \in F_q^m, and a vector r \in F_q^n
         and outputs a solution x such that Ax = y
         """
-        return 0
 
-    def ef():
-        """
-        takes as input a matrix B \in F_q^{m x n}
-        and outputs a matrix B' \in F_q^{m x n} in echelon form.
-        """
-        return 0
+        if A.rank() != self.m:
+            return None
+        # TODO: make sure that this gives the same solution as the spec
+        x = A.solve_right(y-A*r)
+
+        assert A*x == y - A*r
+
+        return x
 
 
 MAYO1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])
@@ -312,7 +380,14 @@ assert len(epk) == MAYO1.epk_bytes
 esk = MAYO1.expand_sk(csk)
 assert len(esk) == MAYO1.esk_bytes
 
+msg = b'1234'
 
+sm = MAYO1.sign(msg, esk)
+assert len(sm) == MAYO1.sig_bytes + len(msg)
+
+valid, msg2 = MAYO1.open(sm, epk)
+assert valid == True
+assert msg2 == msg
 
 VERSION = "MAYO-00"
 
