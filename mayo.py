@@ -422,7 +422,7 @@ class MAYO:
 
 MAYO1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])
 
-# just check the decode_mat/encode_mat function
+# just check the decode_*/encode_* functions
 assert MAYO1.check_decode_encode()
 
 csk, cpk = MAYO1.compact_key_gen()
