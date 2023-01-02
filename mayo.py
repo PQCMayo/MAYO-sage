@@ -130,6 +130,13 @@ def encode_mat(mat, m, rows, columns, triangular):
         #            (els[i*2 + 1].integer_representation() << 4)]
         return bytes(bs)
 
+def Upper(p, rows):
+    for j in range(0, rows):
+        for k in range(j+1, rows):
+            p[j, k] += p[k, j]
+            p[k, j] = 0        
+    
+    return p 
 
 class MAYO:
     def __init__(self, parameter_set):
@@ -167,7 +174,7 @@ class MAYO:
         self.esk_bytes = self.sk_seed_bytes + \
             self.O_bytes + self.P1_bytes + self.P2_bytes
 
-        assert self.q == 16
+        assert self.q == 16       
 
     def compact_key_gen(self):
         """
@@ -177,6 +184,11 @@ class MAYO:
         # F16.<y> = GF(16)
 
         seed_sk = self.random_bytes(self.sk_seed_bytes)
+
+        val = 1
+        seed_sk = val.to_bytes(5, 'little')
+        seed_sk = shake_256(seed_sk).digest(
+            int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         seed_pk = s[:self.pk_seed_bytes]
@@ -189,21 +201,18 @@ class MAYO:
 
         p1 = decode_mat(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
+
         p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
 
         p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
         for i in range(self.m):
-            p3[i] = - o.transpose()*p1[i]*o - o.transpose()*p2[i]
-            # Upper
-            for j in range(1, self.o):
-                for k in range(j-1):
-                    p3[i][k, j] += p3[i][j, k]
-                    p3[i][j, k] = 0
+            p3[i] = Upper(- o.transpose()*p1[i]*o - o.transpose()*p2[i], self.o)
 
         cpk = seed_pk + encode_mat(p3, self.m, self.o, self.o, triangular=True)
         csk = seed_sk
         return csk, cpk
+
 
     def expand_sk(self, csk):
         """
@@ -222,6 +231,7 @@ class MAYO:
 
         p1 = decode_mat(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
+
         p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
 
@@ -332,9 +342,11 @@ class MAYO:
 
         p1 = decode_mat(epk[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
+
         p2 = decode_mat(epk[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
-        p3 = decode_mat(epk[self.P1_bytes+self.P2_bytes:],
+
+        p3 = decode_mat(epk[self.P1_bytes+self.P2_bytes:self.P1_bytes+self.P2_bytes+self.P3_bytes],
                         self.m, self.o, self.o, triangular=True)
 
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
@@ -417,6 +429,7 @@ class MAYO:
         p = s[self.O_bytes:self.O_bytes + self.P1_bytes]
         p1 = decode_mat(p, self.m, self.n-self.o, self.n-self.o, triangular=True)
         p_check = encode_mat(p1, self.m, self.n - self.o, self.n-self.o, triangular=True)
+
 
         # ignoring possible half bytes@decode_mat
         return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check
