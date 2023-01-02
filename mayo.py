@@ -85,7 +85,7 @@ def decode_mat(t, m, rows, columns, triangular):
     if triangular:
         As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
-            for j in range(i+1):
+            for j in range(i, columns):
                 for k in range(m):
                     As[k][i, j] = t.pop()
     else:
@@ -109,10 +109,10 @@ def encode_mat(mat, m, rows, columns, triangular):
         if len(els) % 2 == 1:
             els += [F16(0)]
 
-        bs = []
-        for i in range(len(els)//2):
-            bs += [els[i*2].integer_representation() |
-                   (els[i*2 + 1].integer_representation() << 4)]
+        bs = encode_vec(els)
+        # for i in range(len(els)//2):
+        #     bs += [els[i*2].integer_representation() |
+        #            (els[i*2 + 1].integer_representation() << 4)]
         return bytes(bs)
     else:
         els = []
@@ -406,18 +406,25 @@ class MAYO:
     def check_decode_encode(self):
 
         seed = self.random_bytes(self.sk_seed_bytes)    
-        s = shake_256(seed).digest(int(self.O_bytes))
+        s = shake_256(seed).digest(int(self.O_bytes + self.P1_bytes))
+
+        s1 = s[:self.O_bytes]
 
         # check encode_vec and decode_vec
-        vec1 = decode_vec(s, len(s)*2)
+        vec1 = decode_vec(s1, len(s)*2)
         s_check1 = encode_vec(vec1)
 
         # check encode_mat and decode_mat
-        o = decode_mat(s, 1, self.n-self.o, self.o, triangular=False)[0]
+        o = decode_mat(s1, 1, self.n-self.o, self.o, triangular=False)[0]
         s_check2 = encode_mat([o], 1, self.n-self.o, self.o, triangular=False)
 
+        # check encode_mat and decode_mat triangular
+        p = s[self.O_bytes:self.O_bytes + self.P1_bytes]
+        p1 = decode_mat(p, self.m, self.n-self.o, self.n-self.o, triangular=True)
+        p_check = encode_mat(p1, self.m, self.n - self.o, self.n-self.o, triangular=True)
+
         # ignoring possible half bytes@decode_mat
-        return s == s_check1 and s[:-1] == s_check2[:-1]
+        return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check
 
 
 MAYO1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])

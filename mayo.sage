@@ -79,7 +79,7 @@ def decode_mat(t, m, rows, columns, triangular):
     if triangular:
         As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
-            for j in range(i+1):
+            for j in range(i, columns):
                 for k in range(m):
                     As[k][i,j] = t.pop()
     else:
@@ -101,9 +101,9 @@ def encode_mat(mat, m, rows, columns, triangular):
         if len(els) % 2 == 1:
             els += [F16(0)]
 
-        bs = []
-        for i in range(len(els)/2):
-            bs += [els[i*2].integer_representation() | (els[i*2+1].integer_representation() << 4)]
+        bs = encode_vec(els)
+        # for i in range(len(els)/2):
+        #     bs += [els[i*2].integer_representation() | (els[i*2+1].integer_representation() << 4)]
         return bytes(bs)
     else:
         els = []
@@ -115,9 +115,9 @@ def encode_mat(mat, m, rows, columns, triangular):
         if len(els) % 2 == 1:
             els += [F16(0)]
 
-        bs = []
-        for i in range(len(els)/2):
-            bs += [els[i*2].integer_representation() | (els[i*2+1].integer_representation() << 4)]
+        bs = encode_vec(els)
+        # for i in range(len(els)/2):
+        #     bs += [els[i*2].integer_representation() | (els[i*2+1].integer_representation() << 4)]
         return bytes(bs)
 
 
@@ -245,7 +245,7 @@ class MAYO:
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
         # TODO: change back
         for ctr in range(4): #range(256):
-            V = shake_256(msg + salt + seed_sk + bytes([ctr])).digest(self.k*self.v_bytes + self.r_bytes)
+            V = shake_256(msg + salt + seed_sk + bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes))
 
             v = [vector(F16, self.n-self.o) for _ in range(self.k)]
             M = [matrix(F16, self.m, self.o) for _ in range(self.k)]
