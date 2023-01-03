@@ -299,7 +299,7 @@ class MAYO:
                         else:
                             u[a] = v[i]*p1[a]*v[j] + v[j]*p1[a]*v[i]
 
-                    # convert to polynomial
+                    # convert to polysample_solutionnomial
                     u = self.fx(list(u))
                     y = y - vector(z**ell * u)
 
@@ -404,9 +404,9 @@ class MAYO:
         if A.rank() != self.m:
             return None
         # TODO: make sure that this gives the same solution as the spec
-        x = A.solve_right(y-A*r)
+        x = A.solve_right(y)
 
-        assert A*x == y - A*r
+        assert A*x == y
 
         return x
 
