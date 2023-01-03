@@ -404,11 +404,11 @@ class MAYO:
         if A.rank() != self.m:
             return None
         # TODO: make sure that this gives the same solution as the spec
-        x = A.solve_right(y)
+        x = A.solve_right(y - A*r)
 
-        assert A*x == y
+        assert A*x == y - A*r
 
-        return x
+        return x + r
 
     def check_decode_encode(self):
 
