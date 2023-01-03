@@ -1,3 +1,4 @@
 # MAYO-sage
 
-Run ``make`` to make the files, and ``make test`` for testing.
+Run ``python mayo.py``.
+The script assumes that you have [sage](https://www.sagemath.org/) installed.
