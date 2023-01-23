@@ -4,6 +4,9 @@
 from hashlib import shake_256
 from sage.cpython.string import str_to_bytes
 
+# Current version of the library
+VERSION = "MAYO-00"
+
 # SL1 options: sk_seed_bytes = 32, pk_seed_bytes = 16, salt_bytes = 16
 # pk: 556 B, sig: 568 B, vt: 42614784, (n,m,o,k,q): (68, 72, 5, 16, 16)
 # pk: 740 B, sig: 466 B, vt: 26960232, (n,m,o,k,q): (68, 69, 6, 13, 16)
@@ -134,6 +137,8 @@ def Upper(p, rows):
             p[k, j] = 0
 
     return p
+
+_as_bytes = lambda x: x if isinstance(x, bytes) else bytes(x, "utf-8")
 
 class MAYO:
     def __init__(self, parameter_set):
@@ -407,7 +412,6 @@ class MAYO:
         return x + r
 
     def check_decode_encode(self):
-
         seed = self.random_bytes(self.sk_seed_bytes)
         s = shake_256(seed).digest(int(self.O_bytes + self.P1_bytes))
 
@@ -426,38 +430,14 @@ class MAYO:
         p1 = decode_mat(p, self.m, self.n-self.o, self.n-self.o, triangular=True)
         p_check = encode_mat(p1, self.m, self.n - self.o, self.n-self.o, triangular=True)
 
-
         # ignoring possible half bytes@decode_mat
         return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check
 
+def SetupMAYO(params_type):
+    if (params_type == ""):
+      return None
 
-MAYO1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])
-
-# Check the decode_*/encode_* functions
-assert MAYO1.check_decode_encode()
-
-csk, cpk = MAYO1.compact_key_gen()
-print(csk.hex(), cpk.hex())
-
-assert len(csk) == MAYO1.csk_bytes
-assert len(cpk) == MAYO1.cpk_bytes
-
-epk = MAYO1.expand_pk(cpk)
-assert len(epk) == MAYO1.epk_bytes
-
-esk = MAYO1.expand_sk(csk)
-assert len(esk) == MAYO1.esk_bytes
-
-msg = b'1234'
-
-sm = MAYO1.sign(msg, esk)
-assert len(sm) == MAYO1.sig_bytes + len(msg)
-
-valid, msg2 = MAYO1.open(sm, epk)
-assert valid == True
-assert msg2 == msg
-
-VERSION = "MAYO-00"
+    return MAYO(DEFAULT_PARAMETERS[params_type])
 
 def PrintVersion():
     print(VERSION)
