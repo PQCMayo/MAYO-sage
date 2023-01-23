@@ -76,7 +76,6 @@ def encode_vec(v):
                (v[i*2 + 1].integer_representation() << 4)]
     return bytes(bs)
 
-
 def decode_mat(t, m, rows, columns, triangular):
     t = decode_vec(t, len(t)*2)
 
@@ -96,7 +95,6 @@ def decode_mat(t, m, rows, columns, triangular):
                     As[k][i, j] = t.pop()
 
     return As
-
 
 def encode_mat(mat, m, rows, columns, triangular):
     if triangular:
@@ -377,24 +375,6 @@ class MAYO:
                 ell = ell + 1
         return y == t
 
-    def open(self, sm, epk):
-        """
-        takes as input a signed message sm sm, an expanded
-        public key pk and outputs 1 (invalid) or 0 (valid)
-        and the message if the signature was valid
-        """
-
-        mlen = len(sm) - self.sig_bytes
-        sig = sm[:self.sig_bytes]
-        msg = sm[self.sig_bytes:]
-
-        valid = self.verify(sig, msg, epk)
-
-        if valid:
-            return valid, msg
-        else:
-            return valid, None
-
     def sample_solution(self, A, y, r):
         """
         takes as input a matrix A \in F_q^{m x n} of rank m with n >= m,
@@ -410,28 +390,6 @@ class MAYO:
         assert A*x == y - A*r
 
         return x + r
-
-    def check_decode_encode(self):
-        seed = self.random_bytes(self.sk_seed_bytes)
-        s = shake_256(seed).digest(int(self.O_bytes + self.P1_bytes))
-
-        s1 = s[:self.O_bytes]
-
-        # check encode_vec and decode_vec
-        vec1 = decode_vec(s1, len(s)*2)
-        s_check1 = encode_vec(vec1)
-
-        # check encode_mat and decode_mat
-        o = decode_mat(s1, 1, self.n-self.o, self.o, triangular=False)[0]
-        s_check2 = encode_mat([o], 1, self.n-self.o, self.o, triangular=False)
-
-        # check encode_mat and decode_mat triangular
-        p = s[self.O_bytes:self.O_bytes + self.P1_bytes]
-        p1 = decode_mat(p, self.m, self.n-self.o, self.n-self.o, triangular=True)
-        p_check = encode_mat(p1, self.m, self.n - self.o, self.n-self.o, triangular=True)
-
-        # ignoring possible half bytes@decode_mat
-        return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check
 
 def SetupMAYO(params_type):
     if (params_type == ""):
