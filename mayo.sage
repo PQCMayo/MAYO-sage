@@ -1,11 +1,8 @@
-from sage.all_cmdline import *   # import sage library
-
 #!/usr/bin/sage
 # vim: syntax=python
 
-# import sys
 from hashlib import shake_256
-#from Crypto.Cipher import AES
+from sage.cpython.string import str_to_bytes
 
 # SL1 options: sk_seed_bytes = 32, pk_seed_bytes = 16, salt_bytes = 16
 # pk: 556 B, sig: 568 B, vt: 42614784, (n,m,o,k,q): (68, 72, 5, 16, 16)
@@ -182,11 +179,10 @@ class MAYO:
         are compact representations of a Mayo secret key and public key
         """
         # F16.<y> = GF(16)
-
         seed_sk = self.random_bytes(self.sk_seed_bytes)
 
-        val = 1
-        seed_sk = val.to_bytes(5, 'little')
+	# Representing a 1 in little endian
+        seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
         seed_sk = shake_256(seed_sk).digest(
             int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
@@ -437,7 +433,7 @@ class MAYO:
 
 MAYO1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])
 
-# just check the decode_*/encode_* functions
+# Check the decode_*/encode_* functions
 assert MAYO1.check_decode_encode()
 
 csk, cpk = MAYO1.compact_key_gen()
@@ -462,7 +458,6 @@ assert valid == True
 assert msg2 == msg
 
 VERSION = "MAYO-00"
-
 
 def PrintVersion():
     print(VERSION)
