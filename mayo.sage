@@ -41,20 +41,20 @@ R = F16['z']
 
 DEFAULT_PARAMETERS = {
     "mayo_1": {
-        "n": 68,
-        "m": 72,
-        "o": 5,
-        "k": 16,
+        "n": 69,
+        "m": 64,
+        "o": 9,
+        "k": 8,
         "q": 16,
-        "f": z**72 + z**5 + z**3 + x
+        "f": z**64 + x*z**4 + z**3 + z + 1
     },
     "mayo_2": {
-        "n": 68,
-        "m": 69,
-        "o": 6,
-        "k": 13,
+        "n": 78,
+        "m": 64,
+        "o": 18,
+        "k": 4,
         "q": 16,
-        "f": z**69 + z**40 + x
+        "f": z**64 + x*z**4 + z**3 + z + 1
     },
 }
 
@@ -349,7 +349,7 @@ class MAYO:
                         self.m, self.o, self.o, triangular=True)
 
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
-        s = decode_vec(sig, self.n)
+        s = decode_vec(sig, self.n*self.k)
 
         s = [s[i*self.n:(i+1)*self.n] for i in range(self.k)]
 
@@ -365,6 +365,8 @@ class MAYO:
                     else:
                         p = block_matrix(
                             [[p1[a] + p1[a].transpose(), p2[a]], [p2[a].transpose(), p3[a]+p3[a].transpose()]])
+                    #print(p.ncols(),p.nrows())
+                    #print(len(s[i]),len(s[j]))
                     u[a] = s[i] * p * s[j]
 
                 # convert to polynomial
