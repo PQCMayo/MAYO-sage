@@ -61,13 +61,11 @@ public key pk and outputs 1 (invalid) or 0 (valid)
 and the message if the signature was valid
 """
 def check_sig(mayo_ins, sm, epk):
-
     mlen = len(sm) - mayo_ins.sig_bytes
     sig = sm[:mayo_ins.sig_bytes]
     msg = sm[mayo_ins.sig_bytes:]
 
     valid = mayo_ins.verify(sig, msg, epk)
-
     if valid:
         return valid, msg
     else:
@@ -76,57 +74,61 @@ def check_sig(mayo_ins, sm, epk):
 def main(path="vectors"):
     print("Running Tests for:")
     PrintVersion()
-    mayo_params = "mayo_1"
-    mayo_ins = SetupMAYO(mayo_params)
-    assert (check_decode_encode(mayo_ins)) # Test the encode and decode functionality
 
-    start_time = timeit.default_timer()
-    # Generate the public and secret key, and check their size
-    csk, cpk = mayo_ins.compact_key_gen()
-    assert (len(csk) == mayo_ins.csk_bytes)
-    assert (len(cpk) == mayo_ins.cpk_bytes)
-
-    # Expand the public and secret key, and check their size
-    epk = mayo_ins.expand_pk(cpk)
-    assert len(epk) == mayo_ins.epk_bytes
-    esk = mayo_ins.expand_sk(csk)
-    assert len(esk) == mayo_ins.esk_bytes
-    print("Time taking generating and expanding keys:")
-    print(timeit.default_timer() - start_time)
-
-    start_time = timeit.default_timer()
-    # Sign a message with the public key
-    msg = b'1234'
-    sig = mayo_ins.sign(msg, esk)
-    assert (len(sig) == mayo_ins.sig_bytes + len(msg))
-    print("Time taking signing:")
-    print(timeit.default_timer() - start_time)
-
-    start_time = timeit.default_timer()
-    # Verify the signature on the given message
-    valid, msg2 = check_sig(mayo_ins, sig, epk)
-    assert(valid == True)
-    assert(msg2 == msg)
-    print("Time taking verifying:")
-    print(timeit.default_timer() - start_time)
-
-    if (valid == True and msg2 == msg):
-      print("All tests are sucessful.")
-    else:
-      print("Tests failed.")
-      return
-
+    mayo_params = ["mayo_1", "mayo_2"]
     vectors = {}
-    vectors["identifier"] = mayo_params
-    vectors["secret-key"] = csk.hex()
-    vectors["public-key"] = cpk.hex()
-    vectors["message"] = msg.hex()
-    vectors["signature"] = sig.hex()
 
-    fp = open(path + "/vectors.json", 'wt')
-    json.dump(vectors, fp, sort_keys=True, indent=2)
-    fp.write("\n")
-    fp.close()
+    for i, p in enumerate(mayo_params):
+        print(p)
+        mayo_ins = SetupMAYO(p)
+        assert (check_decode_encode(mayo_ins)) # Test the encode and decode functionality
+
+        start_time = timeit.default_timer()
+        # Generate the public and secret key, and check their size
+        csk, cpk = mayo_ins.compact_key_gen()
+        assert (len(csk) == mayo_ins.csk_bytes)
+        assert (len(cpk) == mayo_ins.cpk_bytes)
+
+        # Expand the public and secret key, and check their size
+        epk = mayo_ins.expand_pk(cpk)
+        assert len(epk) == mayo_ins.epk_bytes
+        esk = mayo_ins.expand_sk(csk)
+        assert len(esk) == mayo_ins.esk_bytes
+        print("Time taking generating and expanding keys:")
+        print(timeit.default_timer() - start_time)
+
+        start_time = timeit.default_timer()
+        # Sign a message with the public key
+        msg = b'1234'
+        sig = mayo_ins.sign(msg, esk)
+        assert (len(sig) == mayo_ins.sig_bytes + len(msg))
+        print("Time taking signing:")
+        print(timeit.default_timer() - start_time)
+
+        start_time = timeit.default_timer()
+        # Verify the signature on the given message
+        valid, msg2 = check_sig(mayo_ins, sig, epk)
+        assert(valid == True)
+        assert(msg2 == msg)
+        print("Time taking verifying:")
+        print(timeit.default_timer() - start_time)
+
+        if (valid == True and msg2 == msg):
+            print("All tests are sucessful.")
+        else:
+            print("Tests failed.")
+            return
+
+        vectors[str(i) + " identifier"] = p
+        vectors[str(i) + " secret-key"] = csk.hex()
+        vectors[str(i) + " public-key"] = cpk.hex()
+        vectors[str(i) + " message"] = msg.hex()
+        vectors[str(i) + " signature"] = sig.hex()
+
+        fp = open(path + "/vectors.json", 'wt')
+        json.dump(vectors, fp, sort_keys=True, indent=2)
+        fp.write("\n")
+        fp.close()
 
 if __name__ == "__main__":
     main()
