@@ -3,6 +3,8 @@
 
 import sys
 import json
+import timeit
+import time
 from hashlib import shake_256
 
 try:
@@ -61,6 +63,7 @@ def main():
     mayo_ins = SetupMAYO("mayo_1")
     assert (check_decode_encode(mayo_ins)) # Test the encode and decode functionality
 
+    start_time = timeit.default_timer()
     # Generate the public and secret key, and check their size
     csk, cpk = mayo_ins.compact_key_gen()
     assert (len(csk) == mayo_ins.csk_bytes)
@@ -71,16 +74,24 @@ def main():
     assert len(epk) == mayo_ins.epk_bytes
     esk = mayo_ins.expand_sk(csk)
     assert len(esk) == mayo_ins.esk_bytes
+    print("Time taking generating and expanding keys:")
+    print(timeit.default_timer() - start_time)
 
+    start_time = timeit.default_timer()
     # Sign a message with the public key
     msg = b'1234'
     sig = mayo_ins.sign(msg, esk)
     assert (len(sig) == mayo_ins.sig_bytes + len(msg))
+    print("Time taking signing:")
+    print(timeit.default_timer() - start_time)
 
+    start_time = timeit.default_timer()
     # Verify the signature on the given message
     valid, msg2 = check_sig(mayo_ins, sig, epk)
     assert(valid == True)
     assert(msg2 == msg)
+    print("Time taking verifying:")
+    print(timeit.default_timer() - start_time)
 
     if (valid == True and msg2 == msg):
       print("All tests are sucessful.")
