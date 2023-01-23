@@ -76,19 +76,35 @@ def encode_vec(v):
                (v[i*2 + 1].integer_representation() << 4)]
     return bytes(bs)
 
-def decode_mat(t, m, rows, columns, triangular):
+def decode_matrix(t, rows, columns, triangular):
     t = decode_vec(t, len(t)*2)
 
     t = list(t[::-1])
 
+    As = matrix(F16, rows, columns)
     if triangular:
-        As = [matrix(F16, rows, columns) for _ in range(m)]
+        for i in range(rows):
+            for j in range(i, columns):
+                As[i, j] = t.pop()
+    else:
+        for i in range(rows):
+            for j in range(columns):
+                As[i, j] = t.pop()
+
+    return As
+
+def decode_matrices_old(t, m, rows, columns, triangular):
+    t = decode_vec(t, len(t)*2)
+
+    t = list(t[::-1])
+
+    As = [matrix(F16, rows, columns) for _ in range(m)]
+    if triangular:
         for i in range(rows):
             for j in range(i, columns):
                 for k in range(m):
                     As[k][i, j] = t.pop()
     else:
-        As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
             for j in range(columns):
                 for k in range(m):
@@ -96,37 +112,156 @@ def decode_mat(t, m, rows, columns, triangular):
 
     return As
 
-def encode_mat(mat, m, rows, columns, triangular):
+def encode_matrix(mat, rows, columns, triangular):
+
+    els = []
     if triangular:
-        els = []
         for i in range(rows):
             for j in range(i, columns):
-                for k in range(m):
-                    els += [mat[k][i, j]]
-
-        if len(els) % 2 == 1:
-            els += [F16(0)]
-
-        bs = encode_vec(els)
-        # for i in range(len(els)//2):
-        #     bs += [els[i*2].integer_representation() |
-        #            (els[i*2 + 1].integer_representation() << 4)]
-        return bytes(bs)
+                els += [mat[i, j]]
     else:
-        els = []
         for i in range(rows):
             for j in range(columns):
-                for k in range(m):
-                    els += [mat[k][i, j]]
+                els += [mat[i, j]]
 
-        if len(els) % 2 == 1:
-            els += [F16(0)]
+    if len(els) % 2 == 1:
+        els += [F16(0)]
 
-        bs = encode_vec(els)
-        # for i in range(len(els)//2):
-        #     bs += [els[i*2].integer_representation() |
-        #            (els[i*2 + 1].integer_representation() << 4)]
-        return bytes(bs)
+    bs = encode_vec(els)
+    return bytes(bs)
+
+# turns an 8 bit abcdefgh int into a 32-bit int 000a000b000c000d000e000f000g000h 
+explode_table = [ int("".join([ "".join(x) for x in zip("00000000","00000000","00000000",bin(i+256)[3:])]),2) for i in range(256) ]
+
+# take a tuple of four m-bit integers and outputs a vector of m field elements
+def unbitslice_m_vec(tuple,m):
+    assert len(tuple) == 4
+    d0,d1,d2,d3 = tuple
+
+    t = bytes()
+    for x in range(m//8):
+        t = t + int(explode_table[d0%256] + explode_table[d1%256]*2 + explode_table[d2%256]*4 + explode_table[d3%256]*8).to_bytes(4, byteorder='little');
+        d0 //= 256
+        d1 //= 256
+        d2 //= 256
+        d3 //= 256
+
+    return decode_vec(t,m)
+
+# inverse of explode 
+implode_dict = { explode_table[i]:i for i in range(256)}
+
+# take a vector of m field elements and output a tuple of four m-bit integers
+def bitslice_m_vec(vec):
+    assert len(vec) %32 == 0
+    m = len(vec)
+
+    d0,d1,d2,d3 = 0,0,0,0
+    t = encode_vec(vec)
+
+    for x in range(m//8,-1,-1):
+        eight_elements = int.from_bytes(t[x*4:(x+1)*4], byteorder = 'little')
+        d0 = d0*256 + implode_dict[      eight_elements & 0b00010001000100010001000100010001 ]
+        d1 = d1*256 + implode_dict[ (eight_elements//2) & 0b00010001000100010001000100010001 ]
+        d2 = d2*256 + implode_dict[ (eight_elements//4) & 0b00010001000100010001000100010001 ]
+        d3 = d3*256 + implode_dict[ (eight_elements//8) & 0b00010001000100010001000100010001 ]
+
+    return (d0,d1,d2,d3)
+
+
+"""
+decode a string to a matrices of bitsliced vectors
+"""
+def partial_decode_matrices(t, m, rows, columns, triangular):
+    assert m % 32 == 0
+    bytes_per_vec = m//2
+    bytes_per_deg = m//8
+    bytes_used = 0
+
+    matrices = [ [None for _ in range(columns)] for _ in range(rows) ]
+    if triangular:
+        assert rows == columns
+        assert bytes_per_vec*(rows+1)*rows//2 == len(t)
+        As = [matrix(F16, rows, columns) for _ in range(m)]
+        for i in range(rows):
+            for j in range(i, columns):
+                matrices[i][j] = ( int.from_bytes(t[bytes_used+0*bytes_per_deg:bytes_used+1*bytes_per_deg], byteorder='little'),
+                                   int.from_bytes(t[bytes_used+1*bytes_per_deg:bytes_used+2*bytes_per_deg], byteorder='little'),
+                                   int.from_bytes(t[bytes_used+2*bytes_per_deg:bytes_used+3*bytes_per_deg], byteorder='little'),
+                                   int.from_bytes(t[bytes_used+3*bytes_per_deg:bytes_used+4*bytes_per_deg], byteorder='little'))
+                bytes_used += bytes_per_vec
+    else:
+        assert bytes_per_vec*rows*columns == len(t)
+        As = [matrix(F16, rows, columns) for _ in range(m)]
+        for i in range(rows):
+            for j in range(columns):
+                matrices[i][j] = ( int.from_bytes(t[bytes_used+0*bytes_per_deg:bytes_used+1*bytes_per_deg], byteorder='little'),
+                                   int.from_bytes(t[bytes_used+1*bytes_per_deg:bytes_used+2*bytes_per_deg], byteorder='little'),
+                                   int.from_bytes(t[bytes_used+2*bytes_per_deg:bytes_used+3*bytes_per_deg], byteorder='little'),
+                                   int.from_bytes(t[bytes_used+3*bytes_per_deg:bytes_used+4*bytes_per_deg], byteorder='little'))
+                bytes_used += bytes_per_vec
+
+    return matrices
+
+def decode_matrices(t, m, rows, columns, triangular):
+    matrices = partial_decode_matrices(t, m, rows, columns, triangular)
+
+    As = [matrix(F16, rows, columns) for _ in range(m)]
+
+    for i in range(rows):
+        for j in range(columns):
+            if matrices[i][j] is None:
+                continue
+            
+            v = unbitslice_m_vec(matrices[i][j], m)
+            for k in range(m):
+                As[k][i,j] = v[k]
+
+    return As
+
+
+"""
+encode set of m matrices to a matrix of bitsliced vectors
+"""
+def partial_encode_matrices(matrices, m, rows, columns, triangular):
+    assert m % 32 == 0
+    bytes_per_deg = m//8
+
+    t = bytes()
+    if triangular:
+        assert rows == columns
+        for i in range(rows):
+            for j in range(i, columns):
+                t += int(matrices[i][j][0]).to_bytes(bytes_per_deg, byteorder='little')
+                t += int(matrices[i][j][1]).to_bytes(bytes_per_deg, byteorder='little')
+                t += int(matrices[i][j][2]).to_bytes(bytes_per_deg, byteorder='little')
+                t += int(matrices[i][j][3]).to_bytes(bytes_per_deg, byteorder='little')
+        return t
+    else:
+        for i in range(rows):
+            for j in range(columns):
+                t += int(matrices[i][j][0]).to_bytes(bytes_per_deg, byteorder='little')
+                t += int(matrices[i][j][1]).to_bytes(bytes_per_deg, byteorder='little')
+                t += int(matrices[i][j][2]).to_bytes(bytes_per_deg, byteorder='little')
+                t += int(matrices[i][j][3]).to_bytes(bytes_per_deg, byteorder='little')
+        return t
+
+
+def encode_matrices(mat, m, rows, columns, triangular):
+
+    matrices = [ [None for _ in range(columns)] for _ in range(rows)]
+
+    if triangular:
+        for i in range(rows):
+            for j in range(i, columns):
+                matrices[i][j] = bitslice_m_vec([mat[k][i,j] for k in range(m)])
+    else:
+        for i in range(rows):
+            for j in range(columns):
+                matrices[i][j] = bitslice_m_vec([mat[k][i,j] for k in range(m)])
+
+    return partial_encode_matrices(matrices, m, rows, columns, triangular)
+
 
 def Upper(p, rows):
     for j in range(0, rows):
@@ -178,7 +313,7 @@ class MAYO:
 
     def compact_key_gen(self):
         """
-        outputs a pair (csk, cpk) \in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
+        outputs a pair (csk, cpk) in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
         are compact representations of a Mayo secret key and public key
         """
         # F16.<y> = GF(16)
@@ -192,30 +327,32 @@ class MAYO:
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         seed_pk = s[:self.pk_seed_bytes]
 
-        o = decode_mat(s[self.pk_seed_bytes:self.pk_seed_bytes +
-                       self.O_bytes], 1, self.n-self.o, self.o, triangular=False)[0]
+        o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
+                       self.O_bytes], self.n-self.o, self.o, triangular=False)
 
 
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
-        p1 = decode_mat(p[:self.P1_bytes], self.m, self.n -
+        p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
 
-        p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
+        p2 = decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
 
         p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
+        P3 = [ [ None for _ in range(self.o)] for _ in range(self.o) ]
+
         for i in range(self.m):
             p3[i] = Upper(- o.transpose()*p1[i]*o - o.transpose()*p2[i], self.o)
 
-        cpk = seed_pk + encode_mat(p3, self.m, self.o, self.o, triangular=True)
+        cpk = seed_pk + encode_matrices(p3, self.m, self.o, self.o, triangular=True)
         csk = seed_sk
         return csk, cpk
 
 
     def expand_sk(self, csk):
         """
-        takes as input csk, the compact representation of a secret key, and outputs sk \in B^{sk_bytes},
+        takes as input csk, the compact representation of a secret key, and outputs sk in B^{sk_bytes},
         an expanded representation of the secret key
         """
         assert len(csk) == self.csk_bytes
@@ -224,28 +361,28 @@ class MAYO:
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         seed_pk = s[:self.pk_seed_bytes]
 
-        o = decode_mat(s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes], 1, self.n-self.o, self.o, triangular=False)[0]
+        o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes], self.n-self.o, self.o, triangular=False)
 
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
-        p1 = decode_mat(p[:self.P1_bytes], self.m, self.n -
+        p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
 
-        p2 = decode_mat(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
+        p2 = decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
 
         l = [matrix(F16, self.n-self.o, self.o) for _ in range(self.m)]
         for i in range(self.m):
             l[i] = (p1[i] + p1[i].transpose())*o + p2[i]
 
-        esk = seed_sk + encode_mat([o], 1, self.n-self.o, self.o, triangular=False) + encode_mat(p1, self.m, self.n -
-                                                                                                 self.o, self.n-self.o, triangular=True) + encode_mat(l, self.m, self.n-self.o, self.o, triangular=False)
+        esk = seed_sk + encode_matrix(o, self.n-self.o, self.o, triangular=False) + encode_matrices(p1, self.m, self.n -
+                                                                                                 self.o, self.n-self.o, triangular=True) + encode_matrices(l, self.m, self.n-self.o, self.o, triangular=False)
 
         return esk
 
     def expand_pk(self, cpk):
         """
-        takes as input cpk and outputs pk \in B^{pk_bytes}
+        takes as input cpk and outputs pk in B^{pk_bytes}
         """
         assert len(cpk) == self.cpk_bytes
 
@@ -258,18 +395,18 @@ class MAYO:
 
     def sign(self, msg, esk):
         """
-        takes an expanded secret key sk, a message M \in B^*, and a salt \in B^{salt_bytes} as
-        input, and outputs a signature sig \in B^{sig_bytes}
+        takes an expanded secret key sk, a message M in B^*, and a salt in B^{salt_bytes} as
+        input, and outputs a signature sig in B^{sig_bytes}
         """
 
         salt = self.random_bytes(self.salt_bytes)
         seed_sk = esk[:self.sk_seed_bytes]
-        o = decode_mat(esk[self.sk_seed_bytes:self.sk_seed_bytes + self.O_bytes], 1, self.n-self.o, self.o, triangular=False)[0]
+        o = decode_matrix(esk[self.sk_seed_bytes:self.sk_seed_bytes + self.O_bytes], self.n-self.o, self.o, triangular=False)
 
-        p1 = decode_mat(esk[self.sk_seed_bytes + self.O_bytes:self.sk_seed_bytes +
+        p1 = decode_matrices(esk[self.sk_seed_bytes + self.O_bytes:self.sk_seed_bytes +
                         self.O_bytes + self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
 
-        l = decode_mat(esk[self.sk_seed_bytes + self.O_bytes + self.P1_bytes:],
+        l = decode_matrices(esk[self.sk_seed_bytes + self.O_bytes + self.P1_bytes:],
                        self.m, self.n-self.o, self.o, triangular=False)
 
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
@@ -339,13 +476,13 @@ class MAYO:
         salt = sig[:self.salt_bytes]
         sig = sig[self.salt_bytes:]
 
-        p1 = decode_mat(epk[:self.P1_bytes], self.m, self.n -
+        p1 = decode_matrices(epk[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
 
-        p2 = decode_mat(epk[self.P1_bytes:self.P1_bytes+self.P2_bytes],
+        p2 = decode_matrices(epk[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
 
-        p3 = decode_mat(epk[self.P1_bytes+self.P2_bytes:self.P1_bytes+self.P2_bytes+self.P3_bytes],
+        p3 = decode_matrices(epk[self.P1_bytes+self.P2_bytes:self.P1_bytes+self.P2_bytes+self.P3_bytes],
                         self.m, self.o, self.o, triangular=True)
 
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
@@ -379,8 +516,8 @@ class MAYO:
 
     def sample_solution(self, A, y, r):
         """
-        takes as input a matrix A \in F_q^{m x n} of rank m with n >= m,
-        a vector y \in F_q^m, and a vector r \in F_q^n
+        takes as input a matrix A in F_q^{m x n} of rank m with n >= m,
+        a vector y in F_q^m, and a vector r in F_q^n
         and outputs a solution x such that Ax = y
         """
 

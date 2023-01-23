@@ -12,8 +12,14 @@ try:
     import PrintVersion, \
            decode_vec, \
            encode_vec, \
-           decode_mat, \
-           encode_mat, \
+           decode_matrix, \
+           encode_matrix, \
+           decode_matrices, \
+           encode_matrices, \
+           bitslice_m_vec, \
+           unbitslice_m_vec, \
+           partial_encode_matrices, \
+           partial_decode_matrices, \
            SetupMAYO
 except ImportError as e:
     sys.exit("Error loading preprocessed sage files. Try running `make setup && make clean pyfiles`. Full error: " + e)
@@ -28,16 +34,26 @@ def check_decode_encode(mayo_ins):
     s_check1 = encode_vec(vec1)
 
     # check encode_mat and decode_mat
-    o = decode_mat(s1, 1, mayo_ins.n-mayo_ins.o, mayo_ins.o, triangular=False)[0]
-    s_check2 = encode_mat([o], 1, mayo_ins.n-mayo_ins.o, mayo_ins.o, triangular=False)
+    o = decode_matrix(s1, mayo_ins.n-mayo_ins.o, mayo_ins.o, triangular=False)
+    s_check2 = encode_matrix(o, mayo_ins.n-mayo_ins.o, mayo_ins.o, triangular=False)
 
     # check encode_mat and decode_mat triangular
     p = s[mayo_ins.O_bytes:mayo_ins.O_bytes + mayo_ins.P1_bytes]
-    p1 = decode_mat(p, mayo_ins.m, mayo_ins.n-mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
-    p_check = encode_mat(p1, mayo_ins.m, mayo_ins.n - mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
+    p1 = decode_matrices(p, mayo_ins.m, mayo_ins.n-mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
+    p_check = encode_matrices(p1, mayo_ins.m, mayo_ins.n - mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
+
+    # check bitslice_m_vec
+    vec = decode_vec(s[0:mayo_ins.m//2], mayo_ins.m)
+    a,b,c,d = bitslice_m_vec(vec)
+    vec_check = unbitslice_m_vec((a,b,c,d), mayo_ins.m)
+
+    # check partial_encode_matrices
+    pp = s[mayo_ins.O_bytes:mayo_ins.O_bytes + mayo_ins.P1_bytes]
+    pp1 = partial_decode_matrices(pp, mayo_ins.m, mayo_ins.n-mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
+    pp_check = partial_encode_matrices(pp1, mayo_ins.m, mayo_ins.n - mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
 
     # ignoring possible half bytes@decode_mat
-    return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check
+    return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check and vec == vec_check and pp == pp_check
 
 """
 Takes as input a signed message sm, an expanded
