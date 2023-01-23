@@ -67,7 +67,6 @@ def decode_vec(t, l):
         v = v[:-1]
     return v
 
-
 def encode_vec(v):
     assert len(v) % 2 == 0
     bs = []
@@ -211,7 +210,6 @@ class MAYO:
         cpk = seed_pk + encode_mat(p3, self.m, self.o, self.o, triangular=True)
         csk = seed_sk
         return csk, cpk
-
 
     def expand_sk(self, csk):
         """

@@ -45,13 +45,11 @@ public key pk and outputs 1 (invalid) or 0 (valid)
 and the message if the signature was valid
 """
 def check_sig(mayo_ins, sm, epk):
-
     mlen = len(sm) - mayo_ins.sig_bytes
     sig = sm[:mayo_ins.sig_bytes]
     msg = sm[mayo_ins.sig_bytes:]
 
     valid = mayo_ins.verify(sig, msg, epk)
-
     if valid:
         return valid, msg
     else:
