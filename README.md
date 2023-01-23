@@ -1,5 +1,7 @@
 # MAYO-sage
 
+This is the sage implementation of our MAYO scheme. Learn about it on our [website](https://pqmayo.org/).
+
 ## Requirements
 
 In order to natively build, run, test and benchmark the library, you will need the following:
@@ -25,4 +27,12 @@ In order to test the library, run:
 
 ```
    make test
+```
+
+## Vectors
+
+To generate the vectors, run:
+
+```
+   make vectors
 ```
