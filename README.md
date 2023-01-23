@@ -18,3 +18,11 @@ In order to run, you can either type:
    make run (pure sage version)
    make run-python (python/sage version)
 ```
+
+## Testing
+
+In order to test the library, run:
+
+```
+   make test
+```
