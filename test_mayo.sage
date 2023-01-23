@@ -110,6 +110,7 @@ def main(path="vectors"):
     fp = open(path + "/vectors.json", 'wt')
     json.dump(vectors, fp, sort_keys=True, indent=2)
     fp.write("\n")
+    fp.close()
 
 if __name__ == "__main__":
     main()
