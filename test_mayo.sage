@@ -57,10 +57,11 @@ def check_sig(mayo_ins, sm, epk):
     else:
         return valid, None
 
-def main():
+def main(path="vectors"):
     print("Running Tests for:")
     PrintVersion()
-    mayo_ins = SetupMAYO("mayo_1")
+    mayo_params = "mayo_1"
+    mayo_ins = SetupMAYO(mayo_params)
     assert (check_decode_encode(mayo_ins)) # Test the encode and decode functionality
 
     start_time = timeit.default_timer()
@@ -97,6 +98,19 @@ def main():
       print("All tests are sucessful.")
     else:
       print("Tests failed.")
+      return
+
+    vectors = {}
+    vectors["identifier"] = mayo_params
+    vectors["secret-key"] = csk.hex()
+    vectors["public-key"] = cpk.hex()
+    vectors["message"] = msg.hex()
+    vectors["signature"] = sig.hex()
+
+    fp = open(path + "/vectors.json", 'wt')
+    json.dump(vectors, fp, sort_keys=True, indent=2)
+    fp.write("\n")
+    fp.close()
 
 if __name__ == "__main__":
     main()
