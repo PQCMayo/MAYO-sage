@@ -104,8 +104,8 @@ def main(path="vectors"):
     vectors["identifier"] = mayo_params
     vectors["secret-key"] = csk.hex()
     vectors["public-key"] = cpk.hex()
-    #vectors["message"] = msg
-    #vectors["signature"] = sig.hex()
+    vectors["message"] = msg.hex()
+    vectors["signature"] = sig.hex()
 
     fp = open(path + "/vectors.json", 'wt')
     json.dump(vectors, fp, sort_keys=True, indent=2)
