@@ -101,7 +101,7 @@ def encode_matrix(mat, rows, columns):
     bs = encode_vec(els)
     return bytes(bs)
 
-# turns an 8 bit abcdefgh int into a 32-bit int 000a000b000c000d000e000f000g000h 
+# turns an 8 bit abcdefgh int into a 32-bit int 000a000b000c000d000e000f000g000h
 explode_table = [ int("".join([ "".join(x) for x in zip("00000000","00000000","00000000",bin(i+256)[3:])]),2) for i in range(256) ]
 
 # take a tuple of four m-bit integers and outputs a vector of m field elements
@@ -119,7 +119,7 @@ def unbitslice_m_vec(tuple,m):
 
     return decode_vec(t,m)
 
-# inverse of explode 
+# inverse of explode
 implode_dict = { explode_table[i]:i for i in range(256)}
 
 # take a vector of m field elements and output a tuple of four m-bit integers
@@ -203,6 +203,8 @@ def partial_encode_matrices(matrices, m, rows, columns, triangular):
         assert rows == columns
         for i in range(rows):
             for j in range(i, columns):
+                # This will fail with t += int(matrices[i][j][_sage_const_0 ]).to_bytes(bytes_per_deg, byteorder='little')
+                # OverflowError: int too big to convert
                 t += int(matrices[i][j][0]).to_bytes(bytes_per_deg, byteorder='little')
                 t += int(matrices[i][j][1]).to_bytes(bytes_per_deg, byteorder='little')
                 t += int(matrices[i][j][2]).to_bytes(bytes_per_deg, byteorder='little')
@@ -237,7 +239,7 @@ def encode_matrices(mat, m, rows, columns, triangular):
 def bitsliced_add(veca, vecb):
     a0,a1,a2,a3 = veca
     b0,b1,b2,b3 = vecb
-    return (a0^^b0, a1^^b1, a2^^b2, a3^^b3)  
+    return (a0^^b0, a1^^b1, a2^^b2, a3^^b3)
 
 def bitsliced_mul_add(In, a, Out):
     In0, In1, In2, In3 = In
@@ -501,14 +503,14 @@ class MAYO:
         p2 = partial_decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
 
-        # compute (p1 + p1^t) 
+        # compute (p1 + p1^t)
         p1_p1t = p1.copy()
         for i in range(self.n-self.o):
             p1_p1t[i][i] = (0,0,0,0)
             for j in range(i+1,self.n-self.o):
                 p1_p1t[j][i] = p1_p1t[i][j]
 
-        # compute (p1 + p1^t)*o + p2 
+        # compute (p1 + p1^t)*o + p2
         l = bitsliced_matrices_add(bitsliced_matrices_matrix_mul(p1_p1t, o), p2)
 
         esk = seed_sk + o_bytestring + p[:self.P1_bytes] + partial_encode_matrices(l, self.m, self.n-self.o, self.o, triangular=False)
