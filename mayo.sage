@@ -177,7 +177,7 @@ def partial_decode_matrices(t, m, rows, columns, triangular):
     bytes_per_deg = m//8
     bytes_used = 0
 
-    matrices = [ [None for _ in range(columns)] for _ in range(rows) ]
+    matrices = [ [(0,0,0,0) for _ in range(columns)] for _ in range(rows) ]
     if triangular:
         assert rows == columns
         assert bytes_per_vec*(rows+1)*rows//2 == len(t)
@@ -262,6 +262,79 @@ def encode_matrices(mat, m, rows, columns, triangular):
     return partial_encode_matrices(matrices, m, rows, columns, triangular)
 
 
+def bitsliced_add(veca, vecb):
+    a0,a1,a2,a3 = veca
+    b0,b1,b2,b3 = vecb
+    return (a0^^b0, a1^^b1, a2^^b2, a3^^b3)  
+
+def bitsliced_mul_add(In, a, Out):
+    In0, In1, In2, In3 = In
+    Out0, Out1, Out2, Out3 = Out
+    a0, a1, a2, a3 = map(int,a.list())
+
+    Out0 ^^= a0*In0
+    Out1 ^^= a0*In1
+    Out2 ^^= a0*In2
+    Out3 ^^= a0*In3
+
+    In0, In1, In2, In3 = In3, In0^^In3, In1, In2
+    Out0 ^^= a1*In0
+    Out1 ^^= a1*In1
+    Out2 ^^= a1*In2
+    Out3 ^^= a1*In3
+
+    In0, In1, In2, In3 = In3, In0^^In3, In1, In2
+    Out0 ^^= a2*In0
+    Out1 ^^= a2*In1
+    Out2 ^^= a2*In2
+    Out3 ^^= a2*In3
+
+    In0, In1, In2, In3 = In3, In0^^In3, In1, In2
+    Out0 ^^= a3*In0
+    Out1 ^^= a3*In1
+    Out2 ^^= a3*In2
+    Out3 ^^= a3*In3
+
+    return (Out0,Out1,Out2,Out3)
+
+def bitsliced_matrices_matrix_mul(matrices, matrix):
+    assert len(matrices[0]) == matrix.nrows()
+
+    Out = [ [ (0,0,0,0) for _ in range(matrix.ncols())] for _ in range(len(matrices)) ]
+
+    for i in range(len(matrices)):
+        for j in range(matrix.ncols()):
+            for k in range(matrix.nrows()):
+                Out[i][j] = bitsliced_mul_add(matrices[i][k],matrix[k,j],Out[i][j])
+
+    return Out
+
+def bitsliced_matrix_matrices_mul(matrix,matrices):
+    assert len(matrices) == matrix.ncols()
+
+    Out = [ [ (0,0,0,0) for _ in range(len(matrices[0]))] for _ in range(matrix.nrows()) ]
+
+    for i in range(matrix.nrows()):
+        for j in range(len(matrices[0])):
+            for k in range(matrix.ncols()):
+                Out[i][j] = bitsliced_mul_add(matrices[k][j],matrix[i,k],Out[i][j])
+
+    return Out
+
+def bitsliced_matrices_add(matricesa,matricesb):
+    assert len(matricesa) == len(matricesb)
+    assert len(matricesa[0]) == len(matricesb[0])
+
+    Out = [ [ None for _ in range(len(matricesa[0]))] for _ in range(len(matricesa)) ]
+
+    for i in range(len(matricesa)):
+        for j in range(len(matricesa[0])):
+            Out[i][j] = bitsliced_add(matricesa[i][j],matricesb[i][j])
+
+    return Out
+
+
+
 def Upper(p, rows):
     for j in range(0, rows):
         for k in range(j+1, rows):
@@ -269,6 +342,16 @@ def Upper(p, rows):
             p[k, j] = 0
 
     return p
+
+def bitsliced_Upper(matrices):
+
+    rows = len(matrices)
+    for j in range(0, rows):
+        for k in range(j+1, rows):
+            matrices[j][k] = bitsliced_add(matrices[j][k],matrices[k][j])
+            matrices[k][j] = None
+
+    return matrices
 
 _as_bytes = lambda x: x if isinstance(x, bytes) else bytes(x, "utf-8")
 
@@ -315,10 +398,13 @@ class MAYO:
         outputs a pair (csk, cpk) in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
         are compact representations of a Mayo secret key and public key
         """
+
+
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
 
-	# Representing a 1 in little endian
+
+	    # Representing a 1 in little endian
         seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
         seed_sk = shake_256(seed_sk).digest(
             int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
@@ -339,12 +425,51 @@ class MAYO:
                         self.m, self.n-self.o, self.o, triangular=False)
 
         p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
-        P3 = [ [ None for _ in range(self.o)] for _ in range(self.o) ]
 
         for i in range(self.m):
             p3[i] = Upper(- o.transpose()*p1[i]*o - o.transpose()*p2[i], self.o)
 
         cpk = seed_pk + encode_matrices(p3, self.m, self.o, self.o, triangular=True)
+        csk = seed_sk
+        return csk, cpk
+
+    def compact_key_gen_bitsliced(self):
+        """
+        outputs a pair (csk, cpk) in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
+        are compact representations of a Mayo secret key and public key
+        """
+        # F16.<y> = GF(16)
+        seed_sk = self.random_bytes(self.sk_seed_bytes)
+
+	    # Representing a 1 in little endian
+        seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
+        seed_sk = shake_256(seed_sk).digest(
+            int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
+
+        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
+        seed_pk = s[:self.pk_seed_bytes]
+
+        o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
+                       self.O_bytes], self.n-self.o, self.o, triangular=False)
+
+
+        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+
+        p1 = partial_decode_matrices(p[:self.P1_bytes], self.m, self.n -
+                        self.o, self.n-self.o, triangular=True)
+
+        p2 = partial_decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
+                        self.m, self.n-self.o, self.o, triangular=False)
+
+        p3 = [ [ None for _ in range(self.o)] for _ in range(self.o) ]
+
+        # compute p1o + p2
+        p1o_p2 = bitsliced_matrices_add(bitsliced_matrices_matrix_mul(p1,o),p2)
+        # compute p3
+        p3 = bitsliced_matrix_matrices_mul(o.transpose(), p1o_p2)
+        p3 = bitsliced_Upper(p3)
+
+        cpk = seed_pk + partial_encode_matrices(p3, self.m, self.o, self.o, triangular=True)
         csk = seed_sk
         return csk, cpk
 
