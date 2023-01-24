@@ -23,8 +23,6 @@ try:
            partial_decode_matrices, \
            bitsliced_mul_add, \
            SetupMAYO
-    from sagelib.aes256_ctr_drbg \
-    import AES256_CTR_DRBG
 except ImportError as e:
     sys.exit("Error loading preprocessed sage files. Try running `make setup && make clean pyfiles`. Full error: " + e)
 
@@ -52,7 +50,7 @@ def check_decode_encode(mayo_ins):
     p1 = decode_matrices(p, mayo_ins.m, mayo_ins.n-mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
     p_check = encode_matrices(p1, mayo_ins.m, mayo_ins.n - mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
 
-    if (bit_slicing == true):
+    if (bit_slicing == True):
         # check bitslice_m_vec
         vec = decode_vec(s[0:mayo_ins.m//2], mayo_ins.m)
         a,b,c,d = bitslice_m_vec(vec)
@@ -138,7 +136,7 @@ class TestDeterministicTestValues(unittest.TestCase):
             print("Time taking generating and expanding keys:")
             print(timeit.default_timer() - start_time)
 
-            if (bit_slicing == true):
+            if (bit_slicing == True):
                 start_time = timeit.default_timer()
                 # Generate the public and secret key with bitslicing, and check their size
                 csk, cpk = mayo_ins.compact_key_gen_bitsliced()
@@ -217,7 +215,7 @@ class TestRandomTestValues(unittest.TestCase):
             print("Time taking generating and expanding keys:")
             print(timeit.default_timer() - start_time)
 
-            if (bit_slicing == true):
+            if (bit_slicing == True):
                 start_time = timeit.default_timer()
                 # Generate the public and secret key with bitslicing, and check their size
                 csk, cpk = mayo_ins.compact_key_gen_bitsliced()
