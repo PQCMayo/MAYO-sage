@@ -75,53 +75,25 @@ def encode_vec(v):
                (v[i*2 + 1].integer_representation() << 4)]
     return bytes(bs)
 
-def decode_matrix(t, rows, columns, triangular):
+def decode_matrix(t, rows, columns):
     t = decode_vec(t, len(t)*2)
 
     t = list(t[::-1])
 
     As = matrix(F16, rows, columns)
-    if triangular:
-        for i in range(rows):
-            for j in range(i, columns):
-                As[i, j] = t.pop()
-    else:
-        for i in range(rows):
-            for j in range(columns):
-                As[i, j] = t.pop()
+    for i in range(rows):
+        for j in range(columns):
+            As[i, j] = t.pop()
 
     return As
 
-def decode_matrices_old(t, m, rows, columns, triangular):
-    t = decode_vec(t, len(t)*2)
-
-    t = list(t[::-1])
-
-    As = [matrix(F16, rows, columns) for _ in range(m)]
-    if triangular:
-        for i in range(rows):
-            for j in range(i, columns):
-                for k in range(m):
-                    As[k][i, j] = t.pop()
-    else:
-        for i in range(rows):
-            for j in range(columns):
-                for k in range(m):
-                    As[k][i, j] = t.pop()
-
-    return As
-
-def encode_matrix(mat, rows, columns, triangular):
+# not used in impelementation, only for testing decode_matrix
+def encode_matrix(mat, rows, columns):
 
     els = []
-    if triangular:
-        for i in range(rows):
-            for j in range(i, columns):
-                els += [mat[i, j]]
-    else:
-        for i in range(rows):
-            for j in range(columns):
-                els += [mat[i, j]]
+    for i in range(rows):
+        for j in range(columns):
+            els += [mat[i, j]]
 
     if len(els) % 2 == 1:
         els += [F16(0)]
@@ -413,7 +385,7 @@ class MAYO:
         seed_pk = s[:self.pk_seed_bytes]
 
         o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
-                       self.O_bytes], self.n-self.o, self.o, triangular=False)
+                       self.O_bytes], self.n-self.o, self.o)
 
 
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
@@ -450,7 +422,7 @@ class MAYO:
         seed_pk = s[:self.pk_seed_bytes]
 
         o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
-                       self.O_bytes], self.n-self.o, self.o, triangular=False)
+                       self.O_bytes], self.n-self.o, self.o)
 
 
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
@@ -485,7 +457,7 @@ class MAYO:
         seed_pk = s[:self.pk_seed_bytes]
 
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
-        o = decode_matrix(o_bytestring, self.n-self.o, self.o, triangular=False)
+        o = decode_matrix(o_bytestring, self.n-self.o, self.o)
 
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
@@ -515,7 +487,7 @@ class MAYO:
         seed_pk = s[:self.pk_seed_bytes]
 
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
-        o = decode_matrix(o_bytestring, self.n-self.o, self.o, triangular=False)
+        o = decode_matrix(o_bytestring, self.n-self.o, self.o)
 
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
@@ -560,7 +532,7 @@ class MAYO:
 
         salt = self.random_bytes(self.salt_bytes)
         seed_sk = esk[:self.sk_seed_bytes]
-        o = decode_matrix(esk[self.sk_seed_bytes:self.sk_seed_bytes + self.O_bytes], self.n-self.o, self.o, triangular=False)
+        o = decode_matrix(esk[self.sk_seed_bytes:self.sk_seed_bytes + self.O_bytes], self.n-self.o, self.o)
 
         p1 = decode_matrices(esk[self.sk_seed_bytes + self.O_bytes:self.sk_seed_bytes +
                         self.O_bytes + self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)

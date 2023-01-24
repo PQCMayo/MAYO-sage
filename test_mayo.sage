@@ -40,8 +40,8 @@ def check_decode_encode(mayo_ins):
     s_check1 = encode_vec(vec1)
 
     # check encode_mat and decode_mat
-    o = decode_matrix(s1, mayo_ins.n-mayo_ins.o, mayo_ins.o, triangular=False)
-    s_check2 = encode_matrix(o, mayo_ins.n-mayo_ins.o, mayo_ins.o, triangular=False)
+    o = decode_matrix(s1, mayo_ins.n-mayo_ins.o, mayo_ins.o)
+    s_check2 = encode_matrix(o, mayo_ins.n-mayo_ins.o, mayo_ins.o)
 
     # check encode_mat and decode_mat triangular
     p = s[mayo_ins.O_bytes:mayo_ins.O_bytes + mayo_ins.P1_bytes]
