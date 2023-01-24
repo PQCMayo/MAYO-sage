@@ -484,7 +484,8 @@ class MAYO:
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         seed_pk = s[:self.pk_seed_bytes]
 
-        o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes], self.n-self.o, self.o, triangular=False)
+        o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
+        o = decode_matrix(o_bytestring, self.n-self.o, self.o, triangular=False)
 
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
@@ -498,8 +499,43 @@ class MAYO:
         for i in range(self.m):
             l[i] = (p1[i] + p1[i].transpose())*o + p2[i]
 
-        esk = seed_sk + encode_matrix(o, self.n-self.o, self.o, triangular=False) + encode_matrices(p1, self.m, self.n -
-                                                                                                 self.o, self.n-self.o, triangular=True) + encode_matrices(l, self.m, self.n-self.o, self.o, triangular=False)
+        esk = seed_sk + o_bytestring + p[:self.P1_bytes] + encode_matrices(l, self.m, self.n-self.o, self.o, triangular=False)
+
+        return esk
+
+    def expand_sk_bitsliced(self, csk):
+        """
+        takes as input csk, the compact representation of a secret key, and outputs sk in B^{sk_bytes},
+        an expanded representation of the secret key
+        """
+        assert len(csk) == self.csk_bytes
+
+        seed_sk = csk
+        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
+        seed_pk = s[:self.pk_seed_bytes]
+
+        o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
+        o = decode_matrix(o_bytestring, self.n-self.o, self.o, triangular=False)
+
+        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+
+        p1 = partial_decode_matrices(p[:self.P1_bytes], self.m, self.n -
+                        self.o, self.n-self.o, triangular=True)
+
+        p2 = partial_decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
+                        self.m, self.n-self.o, self.o, triangular=False)
+
+        # compute (p1 + p1^t) 
+        p1_p1t = p1.copy()
+        for i in range(self.n-self.o):
+            p1_p1t[i][i] = (0,0,0,0)
+            for j in range(i+1,self.n-self.o):
+                p1_p1t[j][i] = p1_p1t[i][j]
+
+        # compute (p1 + p1^t)*o + p2 
+        l = bitsliced_matrices_add(bitsliced_matrices_matrix_mul(p1_p1t, o), p2)
+
+        esk = seed_sk + o_bytestring + p[:self.P1_bytes] + partial_encode_matrices(l, self.m, self.n-self.o, self.o, triangular=False)
 
         return esk
 

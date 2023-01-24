@@ -75,6 +75,11 @@ def check_decode_encode(mayo_ins):
     assert(csk == csk_check)
     assert(cpk == cpk_check)
 
+    # check bitsliced expandsk
+    esk       = mayo_ins.expand_sk(csk)
+    esk_check = mayo_ins.expand_sk_bitsliced(csk)
+    assert(esk == esk_check)
+
     # ignoring possible half bytes@decode_mat
     return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check and vec == vec_check and pp == pp_check and out == out_check
 
@@ -121,17 +126,17 @@ def main(path="vectors"):
         print(timeit.default_timer() - start_time)
 
         start_time = timeit.default_timer()
-        # Generate the public and secret key, and check their size
+        # Generate the public and secret key with bitslicing, and check their size
         csk, cpk = mayo_ins.compact_key_gen_bitsliced()
         assert (len(csk) == mayo_ins.csk_bytes)
         assert (len(cpk) == mayo_ins.cpk_bytes)
 
-        # Expand the public and secret key, and check their size
+        # Expand the public and secret key with bitslicing, and check their size
         epk = mayo_ins.expand_pk(cpk)
         assert len(epk) == mayo_ins.epk_bytes
-        esk = mayo_ins.expand_sk(csk)
+        esk = mayo_ins.expand_sk_bitsliced(csk)
         assert len(esk) == mayo_ins.esk_bytes
-        print("Time taking generating (bitsliced) and expanding keys:")
+        print("Time taking generating and expanding keys (bitsliced):")
         print(timeit.default_timer() - start_time)
 
         start_time = timeit.default_timer()
