@@ -3,6 +3,13 @@
 
 from hashlib import shake_256
 from sage.cpython.string import str_to_bytes
+try:
+    from sagelib.aes256_ctr_drbg \
+    import AES256_CTR_DRBG
+except ImportError as e:
+    print("Error importing AES CTR DRBG. Have you tried installing requirements?")
+    print(f"ImportError: {e}\n")
+    print("Sage will work perfectly fine with system randomness")
 
 # Current version of the library
 VERSION = "MAYO-00"
@@ -183,7 +190,7 @@ def decode_matrices(t, m, rows, columns, triangular):
         for j in range(columns):
             if matrices[i][j] is None:
                 continue
-            
+
             v = unbitslice_m_vec(matrices[i][j], m)
             for k in range(m):
                 As[k][i,j] = v[k]
@@ -331,16 +338,14 @@ def bitsliced_Upper(matrices):
 
     return matrices
 
-_as_bytes = lambda x: x if isinstance(x, bytes) else bytes(x, "utf-8")
-
 class MAYO:
     def __init__(self, parameter_set):
-        self.random_bytes = os.urandom
         self.n = parameter_set["n"]
         self.m = parameter_set["m"]
         self.o = parameter_set["o"]
         self.k = parameter_set["k"]
         self.q = parameter_set["q"]
+        self.aes = False
 
         self.f = parameter_set["f"]
 
@@ -371,19 +376,44 @@ class MAYO:
 
         assert self.q == 16
 
+    def random_bytes(self, len):
+        if (self.aes == True):
+            return self.drbg.random_bytes(len)
+
+        return os.urandom(len)
+
+    def set_drbg_seed(self, seed):
+        """
+        Setting the seed switches the entropy source
+        from os.urandom to AES256 CTR DRBG
+
+        Note: requires pycryptodomex for AES impl.
+        """
+        self.drbg = AES256_CTR_DRBG(seed)
+        self.aes = True
+
+    def reseed_drbg(self, seed):
+        """
+        Reseeds the DRBG, errors if a DRBG is not set.
+
+        Note: requires pycryptodome for AES impl.
+        """
+        if self.drbg is None:
+            raise Warning(f"Cannot reseed DRBG without first initialising. Try using `set_drbg_seed`")
+        else:
+            self.drbg.reseed(seed)
+
     def compact_key_gen(self):
         """
         outputs a pair (csk, cpk) in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
         are compact representations of a Mayo secret key and public key
         """
 
-
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
 
-
-	    # Representing a 1 in little endian
-        seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
+	# Representing a 1 in little endian
+        #seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
         seed_sk = shake_256(seed_sk).digest(
             int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
@@ -419,8 +449,8 @@ class MAYO:
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
 
-	    # Representing a 1 in little endian
-        seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
+	# Representing a 1 in little endian
+        #seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
         seed_sk = shake_256(seed_sk).digest(
             int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
