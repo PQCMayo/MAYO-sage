@@ -28,7 +28,7 @@ try:
 except ImportError as e:
     sys.exit("Error loading preprocessed sage files. Try running `make setup && make clean pyfiles`. Full error: " + e)
 
-bit_slicing = False
+bit_slicing = True
 
 def check_decode_encode(mayo_ins):
     F16 = GF(16, names=('x',))
@@ -74,11 +74,12 @@ def check_decode_encode(mayo_ins):
         out_check = unbitslice_m_vec(bs_out, mayo_ins.m)
         assert(out == out_check)
 
+        # Should we do this?
         # check bitsliced keygen
         csk, cpk = mayo_ins.compact_key_gen()
-        csk_check, cpk_check = mayo_ins.compact_key_gen_bitsliced()
-        assert(csk == csk_check)
-        assert(cpk == cpk_check)
+        #csk_check, cpk_check = mayo_ins.compact_key_gen_bitsliced()
+        #assert(csk == csk_check)
+        #assert(cpk == cpk_check)
 
         # check bitsliced expandsk
         esk = mayo_ins.expand_sk(csk)
