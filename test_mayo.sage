@@ -25,7 +25,7 @@ try:
 except ImportError as e:
     sys.exit("Error loading preprocessed sage files. Try running `make setup && make clean pyfiles`. Full error: " + e)
 
-bit_slicing = false
+bit_slicing = true
 
 def check_decode_encode(mayo_ins):
     F16 = GF(16, names=('x',))
