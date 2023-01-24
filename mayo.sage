@@ -242,30 +242,34 @@ def bitsliced_add(veca, vecb):
 def bitsliced_mul_add(In, a, Out):
     In0, In1, In2, In3 = In
     Out0, Out1, Out2, Out3 = Out
-    a0, a1, a2, a3 = map(int,a.list())
+    a_int = a.integer_representation()
 
-    Out0 ^^= a0*In0
-    Out1 ^^= a0*In1
-    Out2 ^^= a0*In2
-    Out3 ^^= a0*In3
-
-    In0, In1, In2, In3 = In3, In0^^In3, In1, In2
-    Out0 ^^= a1*In0
-    Out1 ^^= a1*In1
-    Out2 ^^= a1*In2
-    Out3 ^^= a1*In3
+    if a_int & 1:
+        Out0 ^^= In0
+        Out1 ^^= In1
+        Out2 ^^= In2
+        Out3 ^^= In3
 
     In0, In1, In2, In3 = In3, In0^^In3, In1, In2
-    Out0 ^^= a2*In0
-    Out1 ^^= a2*In1
-    Out2 ^^= a2*In2
-    Out3 ^^= a2*In3
+    if a_int & 2:
+        Out0 ^^= In0
+        Out1 ^^= In1
+        Out2 ^^= In2
+        Out3 ^^= In3
 
     In0, In1, In2, In3 = In3, In0^^In3, In1, In2
-    Out0 ^^= a3*In0
-    Out1 ^^= a3*In1
-    Out2 ^^= a3*In2
-    Out3 ^^= a3*In3
+    if a_int & 4:
+        Out0 ^^= In0
+        Out1 ^^= In1
+        Out2 ^^= In2
+        Out3 ^^= In3
+
+    In0, In1, In2, In3 = In3, In0^^In3, In1, In2
+    if a_int & 8:
+        Out0 ^^= In0
+        Out1 ^^= In1
+        Out2 ^^= In2
+        Out3 ^^= In3
 
     return (Out0,Out1,Out2,Out3)
 
