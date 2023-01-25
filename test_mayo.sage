@@ -72,18 +72,6 @@ def check_decode_encode(mayo_ins):
         out_check = unbitslice_m_vec(bs_out, mayo_ins.m)
         assert(out == out_check)
 
-        # Should we do this?
-        # check bitsliced keygen
-        csk, cpk = mayo_ins.compact_key_gen()
-        #csk_check, cpk_check = mayo_ins.compact_key_gen_bitsliced()
-        #assert(csk == csk_check)
-        #assert(cpk == cpk_check)
-
-        # check bitsliced expandsk
-        esk = mayo_ins.expand_sk(csk)
-        esk_check = mayo_ins.expand_sk_bitsliced(csk)
-        assert(esk == esk_check)
-
         # ignoring possible half bytes@decode_mat
         return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check and vec == vec_check and pp == pp_check and out == out_check
 
@@ -139,15 +127,19 @@ class TestDeterministicTestValues(unittest.TestCase):
             if (bit_slicing == True):
                 start_time = timeit.default_timer()
                 # Generate the public and secret key with bitslicing, and check their size
-                csk, cpk = mayo_ins.compact_key_gen_bitsliced()
-                assert (len(csk) == mayo_ins.csk_bytes)
-                assert (len(cpk) == mayo_ins.cpk_bytes)
+                csk_bs, cpk_bs = mayo_ins.compact_key_gen_bitsliced()
+                assert (len(csk_bs) == mayo_ins.csk_bytes)
+                assert (len(cpk_bs) == mayo_ins.cpk_bytes)
+                assert (csk_bs == csk)
+                assert (cpk_bs == cpk)
 
                 # Expand the public and secret key with bitslicing, and check their size
-                epk = mayo_ins.expand_pk(cpk)
-                assert len(epk) == mayo_ins.epk_bytes
-                esk = mayo_ins.expand_sk_bitsliced(csk)
-                assert len(esk) == mayo_ins.esk_bytes
+                epk_bs = mayo_ins.expand_pk(cpk)
+                assert len(epk_bs) == mayo_ins.epk_bytes
+                esk_bs = mayo_ins.expand_sk_bitsliced(csk)
+                assert len(esk_bs) == mayo_ins.esk_bytes
+                assert epk_bs == epk
+                assert esk_bs == esk
                 print("Time taking generating and expanding keys (bitsliced):")
                 print(timeit.default_timer() - start_time)
 
