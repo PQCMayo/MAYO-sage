@@ -622,6 +622,7 @@ class MAYO:
 
             r = decode_vec(V[self.k*self.v_bytes:], self.k*self.o)
             x = self.sample_solution(A, y, r)
+            assert A*x == y
             if x is not None:
                 break
 
@@ -681,6 +682,47 @@ class MAYO:
                 ell = ell + 1
         return y == t
 
+    def EF(self,B):
+        B = copy(B)
+        assert B.nrows() == self.m
+        assert B.ncols() == self.k*self.o + 1
+
+        RS = B.row_space()
+
+        pivot_row = 0
+        pivot_col = 0
+        while pivot_row < self.m and pivot_col < self.k*self.o + 1:
+            next_pivot_row = pivot_row
+            while next_pivot_row < self.m and B[next_pivot_row,pivot_col] == 0:
+                next_pivot_row += 1
+            if next_pivot_row == self.m:
+                pivot_col += 1
+            else:
+                if next_pivot_row > pivot_row:
+                    B.swap_rows(next_pivot_row, pivot_row)
+
+                if B.row_space() != RS:
+                    print("OOPS1")
+                    return
+
+                B.set_row(pivot_row, B.row(pivot_row)*B[pivot_row,pivot_col]^(-1))
+
+                if B.row_space() != RS:
+                    print("OOPS2")
+                    return
+
+                for row in range(pivot_row + 1, self.m):
+                    for col in range(pivot_col+1, self.k*self.o + 1):
+                        B[row,col] -= B[pivot_row,col]*B[row,pivot_col]
+                    B[row,pivot_col] = 0
+                    if B.row_space() != RS:
+                        print("OOPS3", row)
+                        return
+
+                pivot_row += 1
+                pivot_col += 1
+        return B
+
     def sample_solution(self, A, y, r):
         """
         takes as input a matrix A in F_q^{m x n} of rank m with n >= m,
@@ -688,6 +730,7 @@ class MAYO:
         and outputs a solution x such that Ax = y
         """
 
+        """
         if A.rank() != self.m:
             return None
         # TODO: make sure that this gives the same solution as the spec
@@ -696,6 +739,36 @@ class MAYO:
         assert A*x == y - A*r
 
         return x + r
+        """
+        # Above is the easy 'SAGE' way, but we are not sure how solve_right is implemented, 
+        # and we want to test if the spec is correct, so below we implement it ourselves without using A.solve_right
+
+        x = r
+        y -= A*r
+
+        Augmented_matrix = A.augment(matrix(self.m,1,y))
+        Augmented_matrix = self.EF(Augmented_matrix)
+
+        A = Augmented_matrix[:,0:self.k*self.o]
+        y = Augmented_matrix.column(self.k*self.o)
+
+        last_row_zero = True
+        for i in range(self.k*self.o):
+            if A[self.m-1,i] != 0:
+                last_row_zero = False
+                break
+
+        if last_row_zero:
+            return None
+
+        for r in range(self.m-1,-1,-1):
+            c = 0
+            while A[r,c] == 0:
+                c += 1
+            x[c] += y[r]
+            y -= vector(y[r]*A[:,c])
+
+        return x
 
 def SetupMAYO(params_type):
     if (params_type == ""):
