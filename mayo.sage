@@ -658,6 +658,12 @@ class MAYO:
 
         s = [s[i*self.n:(i+1)*self.n] for i in range(self.k)]
 
+        # put p matrices together
+        p = [ block_matrix( [[p1[a], p2[a]], [matrix(F16, self.o, self.n-self.o), p3[a]]]) for a in range(self.m) ]
+
+        # compute s_i^T * {P_j}_{j in [m]} for all i
+        sip = [ [s[i]*p[a] for a in range(self.m)] for i in range(self.k) ]
+
         ell = 0
         y = vector(F16, self.m)
         for i in range(self.k):
@@ -665,14 +671,9 @@ class MAYO:
                 u = vector(F16, self.m)
                 for a in range(self.m):
                     if i == j:
-                        p = block_matrix(
-                            [[p1[a], p2[a]], [matrix(F16, self.o, self.n-self.o), p3[a]]])
+                        u[a] = sip[i][a] * s[j]
                     else:
-                        p = block_matrix(
-                            [[p1[a] + p1[a].transpose(), p2[a]], [p2[a].transpose(), p3[a]+p3[a].transpose()]])
-                    #print(p.ncols(),p.nrows())
-                    #print(len(s[i]),len(s[j]))
-                    u[a] = s[i] * p * s[j]
+                        u[a] = sip[i][a] * s[j] + sip[j][a] * s[i]
 
                 # convert to polynomial
                 u = self.fx(list(u))
