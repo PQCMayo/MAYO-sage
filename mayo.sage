@@ -577,8 +577,7 @@ class MAYO:
                        self.m, self.n-self.o, self.o, triangular=False)
 
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
-        # TODO: change back
-        for ctr in range(4):  # range(256):
+        for ctr in range(256):
             V = shake_256(msg + salt + seed_sk +
                           bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes))
 
@@ -590,6 +589,10 @@ class MAYO:
                 for j in range(self.m):
                     M[i][j, :] = v[i]*l[j]
 
+
+            # compute v_i*P1 for all i
+            vip = [ [v[i]*p1[a] for a in range(self.m)] for i in range(self.k) ]
+
             A = matrix(F16, self.m, self.k*self.o)
             y = t
             ell = 0
@@ -598,9 +601,9 @@ class MAYO:
                     u = vector(F16, self.m)
                     for a in range(self.m):
                         if i == j:
-                            u[a] = v[i]*p1[a]*v[j]
+                            u[a] = vip[i][a]*v[j]                  # v[i]*p1[a]*v[j]
                         else:
-                            u[a] = v[i]*p1[a]*v[j] + v[j]*p1[a]*v[i]
+                            u[a] = vip[i][a]*v[j] + vip[j][a]*v[i] # v[i]*p1[a]*v[j] + v[j]*p1[a]*v[i]
 
                     # convert to polysample_solutionnomial
                     u = self.fx(list(u))
