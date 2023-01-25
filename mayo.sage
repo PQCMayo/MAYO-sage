@@ -46,6 +46,10 @@ R = F16['z']
 #             if f.is_irreducible():
 #                 print(f)
 
+# The parameters are:
+# q (the size of the finite field F_q), m (the number of multivariate quadratic polynomials in the public key),
+# n (the number of variables in the multivariate quadratic polynomials in the public key),
+# o (the dimension of the oil space), k (the whipping parameter)
 DEFAULT_PARAMETERS = {
     "mayo_1": {
         "n": 69,
@@ -406,14 +410,11 @@ class MAYO:
     def compact_key_gen(self):
         """
         outputs a pair (csk, cpk) in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
-        are compact representations of a Mayo secret key and public key
+        are compact representations of a secret key and public key.
         """
 
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
-
-	# Representing a 1 in little endian
-        #seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
         seed_sk = shake_256(seed_sk).digest(
             int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
@@ -423,15 +424,12 @@ class MAYO:
         o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
                        self.O_bytes], self.n-self.o, self.o)
 
-
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
         p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
-
         p2 = decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
-
         p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
 
         for i in range(self.m):
@@ -444,13 +442,11 @@ class MAYO:
     def compact_key_gen_bitsliced(self):
         """
         outputs a pair (csk, cpk) in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
-        are compact representations of a Mayo secret key and public key
+        are compact representations of a secret key and public key
         """
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
 
-	# Representing a 1 in little endian
-        #seed_sk = str_to_bytes('\x01\x00\x00\x00\x00')
         seed_sk = shake_256(seed_sk).digest(
             int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
@@ -741,7 +737,7 @@ class MAYO:
 
         return x + r
         """
-        # Above is the easy 'SAGE' way, but we are not sure how solve_right is implemented, 
+        # Above is the easy 'SAGE' way, but we are not sure how solve_right is implemented,
         # and we want to test if the spec is correct, so below we implement it ourselves without using A.solve_right
 
         x = r
