@@ -175,16 +175,6 @@ def generic_test(Mayo, det):
        print("Test failed for: " + Mayo.set_name)
        return
 
-    #if (det == True):
-    #    vectors["type"] =  "deterministic"
-    #    fp = open(path + "/vectors-det.json", 'wt')
-    #else:
-    #    vectors["type"] =  "random"
-    #    fp = open(path + "/vectors.json", 'wt')
-
-    #json.dump(vectors, fp, sort_keys=True, indent=2)
-    #fp.close()
-
     vector = {}
     vector["identifier"] = Mayo.set_name
     vector["secret-key"] = csk.hex()
