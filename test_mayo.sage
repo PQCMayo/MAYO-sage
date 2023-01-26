@@ -22,7 +22,9 @@ try:
            partial_encode_matrices, \
            partial_decode_matrices, \
            bitsliced_mul_add, \
-           SetupMAYO
+           SetupMAYO, \
+           Mayo1, \
+           Mayo2
 except ImportError as e:
     sys.exit("Error loading preprocessed sage files. Try running `make setup && make clean pyfiles`. Full error: " + e)
 
@@ -93,167 +95,138 @@ def check_sig(mayo_ins, sm, epk):
     else:
         return valid, None
 
+
 path="vectors"
 
+def write_json(new_data, filename='data.json'):
+    with open(path + filename,'r+') as file:
+        file_data = json.load(file)
+        file_data.append(new_data)
+        file.seek(0)
+        json.dump(file_data, file, indent = 4)
+
+def generic_test(Mayo, det):
+    if (det == True):
+        print("Running Tests for deterministic for: " + Mayo.name)
+    else:
+        print("Running Tests for random for: " + Mayo.name)
+
+    print("with: " + Mayo.set_name)
+    vectors = {}
+
+    if (det == True):
+        seed = bytes.fromhex("5d1969a5d103bec1876455194e900a4bf3b0930141b0f0d270311f9d0b121ceaabf767f8616e109701dd1eaca8d8f7a7")
+        Mayo.set_drbg_seed(seed)
+
+    assert (check_decode_encode(Mayo)) # Test the encode and decode functionality
+
+    start_time = timeit.default_timer()
+    # Generate the public and secret key, and check their size
+    csk, cpk = Mayo.compact_key_gen()
+    assert (len(csk) == Mayo.csk_bytes)
+    assert (len(cpk) == Mayo.cpk_bytes)
+
+    # Expand the public and secret key, and check their size
+    epk = Mayo.expand_pk(cpk)
+    assert len(epk) == Mayo.epk_bytes
+    esk = Mayo.expand_sk(csk)
+    assert len(esk) == Mayo.esk_bytes
+    print("Time taking generating and expanding keys:")
+    print(timeit.default_timer() - start_time)
+
+    if (bit_slicing == True):
+        start_time = timeit.default_timer()
+        # Generate the public and secret key with bitslicing, and check their size
+        csk_bs, cpk_bs = Mayo.compact_key_gen_bitsliced()
+        assert (len(csk_bs) == Mayo.csk_bytes)
+        assert (len(cpk_bs) == Mayo.cpk_bytes)
+        assert (csk_bs == csk)
+        assert (cpk_bs == cpk)
+
+        # Expand the public and secret key with bitslicing, and check their size
+        epk_bs = Mayo.expand_pk(cpk)
+        assert len(epk_bs) == Mayo.epk_bytes
+        esk_bs = Mayo.expand_sk_bitsliced(csk)
+        assert len(esk_bs) == Mayo.esk_bytes
+        assert epk_bs == epk
+        assert esk_bs == esk
+        print("Time taking generating and expanding keys (bitsliced):")
+        print(timeit.default_timer() - start_time)
+
+    start_time = timeit.default_timer()
+    # Sign a message with the public key
+    msg = b'1234'
+    sig = Mayo.sign(msg, esk)
+    assert (len(sig) == Mayo.sig_bytes + len(msg))
+    print("Time taking signing:")
+    print(timeit.default_timer() - start_time)
+
+    start_time = timeit.default_timer()
+    # Verify the signature on the given message
+    valid, msg2 = check_sig(Mayo, sig, epk)
+    assert(valid == True)
+    assert(msg2 == msg)
+    print("Time taking verifying:")
+    print(timeit.default_timer() - start_time)
+
+    if (valid == True and msg2 == msg):
+        print("All tests are sucessful for: " + Mayo.set_name)
+    else:
+       print("Test failed for: " + Mayo.set_name)
+       return
+
+    #if (det == True):
+    #    vectors["type"] =  "deterministic"
+    #    fp = open(path + "/vectors-det.json", 'wt')
+    #else:
+    #    vectors["type"] =  "random"
+    #    fp = open(path + "/vectors.json", 'wt')
+
+    #json.dump(vectors, fp, sort_keys=True, indent=2)
+    #fp.close()
+
+    vector = {}
+    vector["identifier"] = Mayo.set_name
+    vector["secret-key"] = csk.hex()
+    vector["public-key"] = cpk.hex()
+    vector["message"] = msg.hex()
+    vector["signature"] = sig.hex()
+
+    if (det == True):
+       write_json(vector, filename='/vectors-det.json')
+    else:
+       write_json(vector, filename='/vectors.json')
+
 class TestDeterministicTestValues(unittest.TestCase):
-    def test_known__seed(self):
-        print("Running Tests for deterministic:")
-        PrintVersion()
+    def generic_deterministic_test(self, Mayo, count):
+        generic_test(Mayo, True)
 
-        mayo_params = ["mayo_1", "mayo_2"]
-        vectors = {}
+    def test_mayo_1(self):
+        self.generic_deterministic_test(Mayo1, 1)
 
-        for i, p in enumerate(mayo_params):
-            print(p)
-            mayo_ins = SetupMAYO(p)
-            seed = bytes.fromhex("5d1969a5d103bec1876455194e900a4bf3b0930141b0f0d270311f9d0b121ceaabf767f8616e109701dd1eaca8d8f7a7")
-            mayo_ins.set_drbg_seed(seed)
-            assert (check_decode_encode(mayo_ins)) # Test the encode and decode functionality
-
-            start_time = timeit.default_timer()
-            # Generate the public and secret key, and check their size
-            csk, cpk = mayo_ins.compact_key_gen()
-            assert (len(csk) == mayo_ins.csk_bytes)
-            assert (len(cpk) == mayo_ins.cpk_bytes)
-
-            # Expand the public and secret key, and check their size
-            epk = mayo_ins.expand_pk(cpk)
-            assert len(epk) == mayo_ins.epk_bytes
-            esk = mayo_ins.expand_sk(csk)
-            assert len(esk) == mayo_ins.esk_bytes
-            print("Time taking generating and expanding keys:")
-            print(timeit.default_timer() - start_time)
-
-            if (bit_slicing == True):
-                start_time = timeit.default_timer()
-                # Generate the public and secret key with bitslicing, and check their size
-                csk_bs, cpk_bs = mayo_ins.compact_key_gen_bitsliced()
-                assert (len(csk_bs) == mayo_ins.csk_bytes)
-                assert (len(cpk_bs) == mayo_ins.cpk_bytes)
-                assert (csk_bs == csk)
-                assert (cpk_bs == cpk)
-
-                # Expand the public and secret key with bitslicing, and check their size
-                epk_bs = mayo_ins.expand_pk(cpk)
-                assert len(epk_bs) == mayo_ins.epk_bytes
-                esk_bs = mayo_ins.expand_sk_bitsliced(csk)
-                assert len(esk_bs) == mayo_ins.esk_bytes
-                assert epk_bs == epk
-                assert esk_bs == esk
-                print("Time taking generating and expanding keys (bitsliced):")
-                print(timeit.default_timer() - start_time)
-
-            start_time = timeit.default_timer()
-            # Sign a message with the public key
-            msg = b'1234'
-            sig = mayo_ins.sign(msg, esk)
-            assert (len(sig) == mayo_ins.sig_bytes + len(msg))
-            print("Time taking signing:")
-            print(timeit.default_timer() - start_time)
-
-            start_time = timeit.default_timer()
-            # Verify the signature on the given message
-            valid, msg2 = check_sig(mayo_ins, sig, epk)
-            assert(valid == True)
-            assert(msg2 == msg)
-            print("Time taking verifying:")
-            print(timeit.default_timer() - start_time)
-
-            if (valid == True and msg2 == msg):
-                print("All tests are sucessful for: " + p)
-            else:
-                print("Tests failed.")
-                return
-
-            vectors[str(i) + " identifier"] = p
-            vectors[str(i) + " secret-key"] = csk.hex()
-            vectors[str(i) + " public-key"] = cpk.hex()
-            vectors[str(i) + " message"] = msg.hex()
-            vectors[str(i) + " signature"] = sig.hex()
-
-            fp = open(path + "/vectors-det.json", 'wt')
-            json.dump(vectors, fp, sort_keys=True, indent=2)
-            fp.write("\n")
-            fp.close()
-
+    def test_mayo_2(self):
+        self.generic_deterministic_test(Mayo2, 2)
 
 class TestRandomTestValues(unittest.TestCase):
-    def test_main_app(self):
-        print("Running Tests for:")
-        PrintVersion()
+    def generic_random_test(self, Mayo, count):
+        generic_test(Mayo, False)
 
-        mayo_params = ["mayo_1", "mayo_2"]
-        vectors = {}
+    def test_mayo_1(self):
+        self.generic_random_test(Mayo1, 1)
 
-        for i, p in enumerate(mayo_params):
-            print(p)
-            mayo_ins = SetupMAYO(p)
-            #seed = os.urandom(48)
-            #mayo_ins.set_drbg_seed(seed)
-            #print(seed.hex())
-            assert (check_decode_encode(mayo_ins)) # Test the encode and decode functionality
-
-            start_time = timeit.default_timer()
-            # Generate the public and secret key, and check their size
-            csk, cpk = mayo_ins.compact_key_gen()
-            assert (len(csk) == mayo_ins.csk_bytes)
-            assert (len(cpk) == mayo_ins.cpk_bytes)
-
-            # Expand the public and secret key, and check their size
-            epk = mayo_ins.expand_pk(cpk)
-            assert len(epk) == mayo_ins.epk_bytes
-            esk = mayo_ins.expand_sk(csk)
-            assert len(esk) == mayo_ins.esk_bytes
-            print("Time taking generating and expanding keys:")
-            print(timeit.default_timer() - start_time)
-
-            if (bit_slicing == True):
-                start_time = timeit.default_timer()
-                # Generate the public and secret key with bitslicing, and check their size
-                csk, cpk = mayo_ins.compact_key_gen_bitsliced()
-                assert (len(csk) == mayo_ins.csk_bytes)
-                assert (len(cpk) == mayo_ins.cpk_bytes)
-
-                # Expand the public and secret key with bitslicing, and check their size
-                epk = mayo_ins.expand_pk(cpk)
-                assert len(epk) == mayo_ins.epk_bytes
-                esk = mayo_ins.expand_sk_bitsliced(csk)
-                assert len(esk) == mayo_ins.esk_bytes
-                print("Time taking generating and expanding keys (bitsliced):")
-                print(timeit.default_timer() - start_time)
-
-            start_time = timeit.default_timer()
-            # Sign a message with the public key
-            msg = b'1234'
-            sig = mayo_ins.sign(msg, esk)
-            assert (len(sig) == mayo_ins.sig_bytes + len(msg))
-            print("Time taking signing:")
-            print(timeit.default_timer() - start_time)
-
-            start_time = timeit.default_timer()
-            # Verify the signature on the given message
-            valid, msg2 = check_sig(mayo_ins, sig, epk)
-            assert(valid == True)
-            assert(msg2 == msg)
-            print("Time taking verifying:")
-            print(timeit.default_timer() - start_time)
-
-            if (valid == True and msg2 == msg):
-                print("All tests are sucessful for: " + p)
-            else:
-                print("Tests failed.")
-                return
-
-            vectors[str(i) + " identifier"] = p
-            vectors[str(i) + " secret-key"] = csk.hex()
-            vectors[str(i) + " public-key"] = cpk.hex()
-            vectors[str(i) + " message"] = msg.hex()
-            vectors[str(i) + " signature"] = sig.hex()
-
-            fp = open(path + "/vectors.json", 'wt')
-            json.dump(vectors, fp, sort_keys=True, indent=2)
-            fp.write("\n")
-            fp.close()
+    def test_mayo_2(self):
+        self.generic_random_test(Mayo2, 2)
 
 if __name__ == "__main__":
+    print("Running all tests for version:")
+
+    init = []
+    fp = open(path + "/vectors-det.json", 'wt')
+    json.dump(init, fp)
+    fp.close()
+    fp = open(path + "/vectors.json", 'wt')
+    json.dump(init, fp)
+    fp.close()
+
+    PrintVersion()
     unittest.main()
