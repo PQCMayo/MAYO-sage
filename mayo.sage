@@ -57,6 +57,7 @@ assert (z**128 + x*z**4 + x**2*z**3 + x**3*z + x**2).is_irreducible()
 # o (the dimension of the oil space), k (the whipping parameter)
 DEFAULT_PARAMETERS = {
     "mayo_1": {
+        "name": "mayo1",
         "n": 69,
         "m": 64,
         "o": 9,
@@ -65,6 +66,7 @@ DEFAULT_PARAMETERS = {
         "f": z**64 + x**3*z**3 + x*z**2 + x**3
     },
     "mayo_2": {
+        "name": "mayo2",
         "n": 78,
         "m": 64,
         "o": 18,
@@ -349,6 +351,8 @@ def bitsliced_Upper(matrices):
 
 class MAYO:
     def __init__(self, parameter_set):
+        self.set_name = str(parameter_set)
+        self.name = parameter_set["name"]
         self.n = parameter_set["n"]
         self.m = parameter_set["m"]
         self.o = parameter_set["o"]
@@ -420,8 +424,6 @@ class MAYO:
 
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
-        seed_sk = shake_256(seed_sk).digest(
-            int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         seed_pk = s[:self.pk_seed_bytes]
@@ -451,9 +453,6 @@ class MAYO:
         """
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
-
-        seed_sk = shake_256(seed_sk).digest(
-            int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         seed_pk = s[:self.pk_seed_bytes]
@@ -782,3 +781,7 @@ def SetupMAYO(params_type):
 
 def PrintVersion():
     print(VERSION)
+
+# Initialise with default parameters
+Mayo1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])
+Mayo2 = MAYO(DEFAULT_PARAMETERS["mayo_2"])
