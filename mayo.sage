@@ -419,8 +419,6 @@ class MAYO:
 
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
-        seed_sk = shake_256(seed_sk).digest(
-            int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         seed_pk = s[:self.pk_seed_bytes]
@@ -450,9 +448,6 @@ class MAYO:
         """
         # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
-
-        seed_sk = shake_256(seed_sk).digest(
-            int(self.pk_seed_bytes + self.O_bytes))[:self.sk_seed_bytes]
 
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
         seed_pk = s[:self.pk_seed_bytes]
