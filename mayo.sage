@@ -46,6 +46,11 @@ R = F16['z']
 #             if f.is_irreducible():
 #                 print(f)
 
+assert (z**64 + x**3*z**3 + x*z**2 + x**3).is_irreducible()
+assert (z**96 + x*z**3 + x*z + x).is_irreducible()
+assert (z**128 + x*z**4 + x**2*z**3 + x**3*z + x**2).is_irreducible()
+
+
 # The parameters are:
 # q (the size of the finite field F_q), m (the number of multivariate quadratic polynomials in the public key),
 # n (the number of variables in the multivariate quadratic polynomials in the public key),
@@ -57,7 +62,7 @@ DEFAULT_PARAMETERS = {
         "o": 9,
         "k": 8,
         "q": 16,
-        "f": z**64 + x*z**4 + z**3 + z + 1
+        "f": z**64 + x**3*z**3 + x*z**2 + x**3
     },
     "mayo_2": {
         "n": 78,
@@ -65,7 +70,7 @@ DEFAULT_PARAMETERS = {
         "o": 18,
         "k": 4,
         "q": 16,
-        "f": z**64 + x*z**4 + z**3 + z + 1
+        "f": z**64 + x**3*z**3 + x*z**2 + x**3
     },
 }
 
@@ -730,18 +735,17 @@ class MAYO:
         and outputs a solution x such that Ax = y
         """
 
-        """
-        if A.rank() != self.m:
-            return None
-        # TODO: make sure that this gives the same solution as the spec
-        x = A.solve_right(y - A*r)
+        use_sage_linear_albegra = True
 
-        assert A*x == y - A*r
+        if use_sage_linear_albegra:
+            if A.rank() != self.m:
+                return None
+            x = A.solve_right(y - A*r)
 
-        return x + r
-        """
-        # Above is the easy 'SAGE' way, but we are not sure how solve_right is implemented,
-        # and we want to test if the spec is correct, so below we implement it ourselves without using A.solve_right
+            assert A*x == y - A*r
+            return x + r
+
+        # Above is the easy 'SAGE' way. To test if the spec is correct, we implement it below without using A.solve_right
 
         x = r
         y -= A*r
