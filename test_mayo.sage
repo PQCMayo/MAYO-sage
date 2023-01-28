@@ -115,8 +115,10 @@ def generic_test(mayo_ins, det):
     print("with: " + mayo_ins.set_name)
     vectors = {}
 
+    seed = bytes.fromhex("00")
+
     if (det == True):
-        seed = bytes.fromhex("5d1969a5d103bec1876455194e900a4bf3b0930141b0f0d270311f9d0b121ceaabf767f8616e109701dd1eaca8d8f7a7")
+        seed = bytes.fromhex("061550234D158C5EC95595FE04EF7A25767F2E24CC2BC479D09D86DC9ABCFDE7056A8C266F9EF97ED08541DBD2E1FFA1")
         mayo_ins.set_drbg_seed(seed)
     else:
         mayo_ins.aes = False
@@ -180,6 +182,7 @@ def generic_test(mayo_ins, det):
        return
 
     vector = {}
+    vector["seed"] = seed.hex()
     vector["identifier"] = mayo_ins.set_name
     vector["secret-key"] = csk.hex()
     vector["public-key"] = cpk.hex()
