@@ -125,6 +125,11 @@ def generic_test(mayo_ins, det):
 
     assert (check_decode_encode(mayo_ins)) # Test the encode and decode functionality
 
+    # reset random_bytes after decode/encode test
+    if (det == True):
+        seed = bytes.fromhex("061550234D158C5EC95595FE04EF7A25767F2E24CC2BC479D09D86DC9ABCFDE7056A8C266F9EF97ED08541DBD2E1FFA1")
+        mayo_ins.set_drbg_seed(seed)
+
     start_time = timeit.default_timer()
     # Generate the public and secret key, and check their size
     csk, cpk = mayo_ins.compact_key_gen()
@@ -140,6 +145,11 @@ def generic_test(mayo_ins, det):
     print(timeit.default_timer() - start_time)
 
     if (bit_slicing == True):
+
+        if (det == True):
+            seed = bytes.fromhex("061550234D158C5EC95595FE04EF7A25767F2E24CC2BC479D09D86DC9ABCFDE7056A8C266F9EF97ED08541DBD2E1FFA1")
+            mayo_ins.set_drbg_seed(seed)
+
         start_time = timeit.default_timer()
         # Generate the public and secret key with bitslicing, and check their size
         csk_bs, cpk_bs = mayo_ins.compact_key_gen_bitsliced()

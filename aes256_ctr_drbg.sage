@@ -12,7 +12,7 @@ def xor_bytes(a, b):
     XOR two byte arrays, assume that they are
     of the same length
     """
-    return bytes(a^b for a,b in zip(a,b))
+    return bytes(a^^b for a,b in zip(a,b))
 
 class AES256_CTR_DRBG:
     def __init__(self, seed=None, personalization=b""):
@@ -21,7 +21,6 @@ class AES256_CTR_DRBG:
         self.key = bytes([0])*32
         self.V   = bytes([0])*16
         self.entropy_input = self.__check_entropy_input(seed)
-
         seed_material = self.__instantiate(personalization=personalization)
         self.ctr_drbg_update(seed_material)
         self.reseed_ctr = 1
