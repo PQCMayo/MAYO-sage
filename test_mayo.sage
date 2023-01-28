@@ -10,9 +10,8 @@ import unittest
 from hashlib import shake_256
 
 try:
-    from sagelib.mayo \
-    import PrintVersion, \
-           decode_vec, \
+    from sagelib.utilities \
+    import decode_vec, \
            encode_vec, \
            decode_matrix, \
            encode_matrix, \
@@ -22,10 +21,12 @@ try:
            unbitslice_m_vec, \
            partial_encode_matrices, \
            partial_decode_matrices, \
-           bitsliced_mul_add, \
-           SetupMAYO, \
+           bitsliced_mul_add
+    from sagelib.mayo \
+    import SetupMAYO, \
            Mayo1, \
-           Mayo2
+           Mayo2, \
+           PrintVersion
 except ImportError as e:
     sys.exit("Error loading preprocessed sage files. Try running `make setup && make clean pyfiles`. Full error: " + e)
 
