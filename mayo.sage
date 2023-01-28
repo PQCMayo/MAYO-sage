@@ -422,28 +422,27 @@ class MAYO:
         are compact representations of a secret key and public key.
         """
 
-        # F16.<y> = GF(16)
-        seed_sk = self.random_bytes(self.sk_seed_bytes)
+        seed_sk = self.random_bytes(self.sk_seed_bytes) # seed_sk $←− B^(sk_seed bytes)
+        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes)) # S ← SHAKE256(seedsk, pk seed bytes + O bytes)
+        seed_pk = s[:self.pk_seed_bytes] # seed_pk ← s[0 : pk_seed_bytes]
 
-        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
-        seed_pk = s[:self.pk_seed_bytes]
+        o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
+        o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o ← Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
-        o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
-                       self.O_bytes], self.n-self.o, self.o)
-
-        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← 4R-AES-128-CTR(seedpk, P1_bytes + P2_bytes)
 
         p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
-                        self.o, self.n-self.o, triangular=True)
+                        self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i∈[m]) ← Decode_(P(1))(p[0 : P1_bytes])
         p2 = decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
-                        self.m, self.n-self.o, self.o, triangular=False)
+                        self.m, self.n-self.o, self.o, triangular=False) # {P_i^(2)}_(i∈[m]) ← Decode_(P(2))(p[P1_bytes : P1_bytes + P2_bytes])
+        # for i from 0 to m − 1 do
+        #   P(3) ← Upper(−O^(T)P_i^(1) O − O^(T)P_i^((2))
         p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
-
         for i in range(self.m):
             p3[i] = Upper(- o.transpose()*p1[i]*o - o.transpose()*p2[i], self.o)
 
-        cpk = seed_pk + encode_matrices(p3, self.m, self.o, self.o, triangular=True)
-        csk = seed_sk
+        cpk = seed_pk + encode_matrices(p3, self.m, self.o, self.o, triangular=True) # cpk ← seedpk ∥ EncodeP(3)({P_i^(3)}i∈[m])
+        csk = seed_sk # csk ← seedsk
         return csk, cpk
 
     def compact_key_gen_bitsliced(self):
@@ -489,26 +488,27 @@ class MAYO:
         assert len(csk) == self.csk_bytes
 
         seed_sk = csk
-        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
-        seed_pk = s[:self.pk_seed_bytes]
+        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes)) # s ← SHAKE256(seedsk, pk_seed_bytes + o_bytes)
+        seed_pk = s[:self.pk_seed_bytes] # seed_pk ← s[0 : pk seed bytes]
 
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
-        o = decode_matrix(o_bytestring, self.n-self.o, self.o)
+        o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o ← Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
-        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← 4R-AES-128-CTR(seedpk, P1_bytes + P2_bytes)
 
         p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
-                        self.o, self.n-self.o, triangular=True)
-
+                        self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i∈[m]) ← Decode_(P(1))(p[0 : P1_bytes])
         p2 = decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
-                        self.m, self.n-self.o, self.o, triangular=False)
+                        self.m, self.n-self.o, self.o, triangular=False) # {P_i^(2)}_(i∈[m]) ← Decode_(P(2))(p[P1_bytes : P1_bytes + P2_bytes])
 
+        # for i from 0 to (m − 1) do
+        # L_i = (P_i^(1) + P_i^((1)T)) o + P_i^(2)
         l = [matrix(F16, self.n-self.o, self.o) for _ in range(self.m)]
         for i in range(self.m):
             l[i] = (p1[i] + p1[i].transpose())*o + p2[i]
 
+        # sk = seed_sk || O bytestring || p[0 : P1 bytes] || Encode_L({L_i}i∈[m])
         esk = seed_sk + o_bytestring + p[:self.P1_bytes] + encode_matrices(l, self.m, self.n-self.o, self.o, triangular=False)
-
         return esk
 
     def expand_sk_bitsliced(self, csk):
@@ -566,21 +566,31 @@ class MAYO:
         input, and outputs a signature sig in B^{sig_bytes}
         """
 
-        salt = self.random_bytes(self.salt_bytes)
-        seed_sk = esk[:self.sk_seed_bytes]
+        seed_sk = esk[:self.sk_seed_bytes] # seed_sk ← sk[0 : sk seed bytes]
+        # o ← Decode_o(sk[sk_seed bytes : sk_seed_bytes + O_bytes])
         o = decode_matrix(esk[self.sk_seed_bytes:self.sk_seed_bytes + self.O_bytes], self.n-self.o, self.o)
 
+        # {P_i^(1)}_{i ∈ m} ← Decode_P(1) (sk[sk_seed_bytes + O_bytes : sk_seed_bytes + O_bytes + P1_bytes])
         p1 = decode_matrices(esk[self.sk_seed_bytes + self.O_bytes:self.sk_seed_bytes +
                         self.O_bytes + self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
-
+        # {Li}_{i∈m} ← Decode_L(sk[sk_seed_bytes + O_bytes + P1_bytes : sk_bytes])
         l = decode_matrices(esk[self.sk_seed_bytes + self.O_bytes + self.P1_bytes:],
                        self.m, self.n-self.o, self.o, triangular=False)
 
+        # t ← Decode_vec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
+        salt = self.random_bytes(self.salt_bytes)
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
-        for ctr in range(256):
-            V = shake_256(msg + salt + seed_sk +
-                          bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes))
 
+        for ctr in range(256): # for ctr from 0 to 255 do
+            V = shake_256(msg + salt + seed_sk +
+                          bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes)) # V ← SHAKE256(M || salt || seedsk || ctr, k * v_bytes + ⌈ko log(q)/8⌉)
+
+
+            # for i from 0 to k − 1 do
+            #   v_i ← Decode_vec(n − o, V[i * v_bytes, (i + 1) * v_bytes])
+            #   M_i ← 0_{m×o} ∈ F_q^{m×o}
+            #   for j from 0 to (m − 1) do
+            #     M_i[j,:] ← v_i^(T)
             v = [vector(F16, self.n-self.o) for _ in range(self.k)]
             M = [matrix(F16, self.m, self.o) for _ in range(self.k)]
             for i in range(self.k):
@@ -589,13 +599,17 @@ class MAYO:
                 for j in range(self.m):
                     M[i][j, :] = v[i]*l[j]
 
-
             # compute v_i*P1 for all i
             vip = [ [v[i]*p1[a] for a in range(self.m)] for i in range(self.k) ]
 
+            # A ← 0_{m×ko} ∈ F_q^{m×ko}
             A = matrix(F16, self.m, self.k*self.o)
+            # y ← t, ell ← 0
             y = t
             ell = 0
+
+            # for i from 0 to (k − 1) do
+            #     for j from i to (k − 1) do
             for i in range(self.k):
                 for j in range(i, self.k):
                     u = vector(F16, self.m)
@@ -607,28 +621,34 @@ class MAYO:
 
                     # convert to polysample_solutionnomial
                     u = self.fx(list(u))
+                    # y ← y − z^ell * u
                     y = y - vector(z**ell * u)
 
                     # TODO: prettify this
-                    xxx = [z**ell * self.fx(M[j][:, a].list())
-                           for a in range(self.o)]
-                    yyy = matrix([list(v) for v in xxx])
+
+                    # A[:, i * o : (i + 1) * o] ← A[:, i * o : (i + 1) * o] + E^{ell}M_{j}
+                    tmp_x = [z**ell * self.fx(M[j][:, a].list()) for a in range(self.o)]
+                    tmp_y = matrix([list(v) for v in tmp_x])
                     A[:, i*self.o:(i+1)*self.o] = A[:, i *
-                                                    self.o:(i+1)*self.o] + yyy.transpose()
+                                                    self.o:(i+1)*self.o] + tmp_y.transpose()
                     if i != j:
-                        xxx = [z**ell * self.fx(M[i][:, a].list())
-                               for a in range(self.o)]
-                        yyy = matrix([list(v) for v in xxx])
+                        tmp_x = [z**ell * self.fx(M[i][:, a].list()) for a in range(self.o)]
+                        tmp_y = matrix([list(v) for v in tmp_x])
+                        # A[:, j * o : (j + 1) * o] ← A[:, j * o : (j + 1) * o] + E^{ell}M_{i}
                         A[:, j*self.o:(j+1)*self.o] = A[:, j *
-                                                        self.o:(j+1)*self.o] + yyy.transpose()
+                                                        self.o:(j+1)*self.o] + tmp_y.transpose()
                     ell = ell + 1
 
+            # r ← Decode_vec(ko, V [k * v_bytes : k * v_bytes + ⌈ko log(q)/8⌉])
             r = decode_vec(V[self.k*self.v_bytes:], self.k*self.o)
-            x = self.sample_solution(A, y, r)
-            assert A*x == y
+            x = self.sample_solution(A, y, r) # x ← SampleSolution(A, y, r)
+            assert(A*x == y)
             if x is not None:
                 break
 
+        # sig ← 0_{kn}
+        # for i from 0 to (k − 1) do
+        # sig[i * n : (i + 1) * n] ← (v_i + Ox[i * o : (i + 1) * o]) || x[i * o : (i + 1) * o]
         sig = vector(F16, self.k*self.n)
         for i in range(self.k):
             sig[i*self.n:(i+1)*self.n] = vector(list(v[i] + o *
