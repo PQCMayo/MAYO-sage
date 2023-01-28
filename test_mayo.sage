@@ -145,7 +145,6 @@ def generic_test(mayo_ins, det):
     print(timeit.default_timer() - start_time)
 
     if (bit_slicing == True):
-
         if (det == True):
             seed = bytes.fromhex("061550234D158C5EC95595FE04EF7A25767F2E24CC2BC479D09D86DC9ABCFDE7056A8C266F9EF97ED08541DBD2E1FFA1")
             mayo_ins.set_drbg_seed(seed)
@@ -192,7 +191,11 @@ def generic_test(mayo_ins, det):
        return
 
     vector = {}
-    vector["seed"] = seed.hex()
+    if (det == True):
+        vector["seed"] = seed.hex()
+    else:
+        vector["seed"] = csk.hex() #it is basically the same
+
     vector["identifier"] = mayo_ins.set_name
     vector["secret-key"] = csk.hex()
     vector["public-key"] = cpk.hex()
@@ -206,9 +209,12 @@ def generic_test(mayo_ins, det):
 
     mayo_ins.aes = False
 
+# Generate deterministic vector values. If you want to generate many of them, increase
+# count
 class TestDeterministicTestValues(unittest.TestCase):
     def generic_deterministic_test(self, mayo_ins, count):
-        generic_test(mayo_ins, True)
+        for _ in range(count):
+            generic_test(mayo_ins, True)
 
     def test_mayo_1(self):
         self.generic_deterministic_test(Mayo1, 1)
@@ -216,6 +222,8 @@ class TestDeterministicTestValues(unittest.TestCase):
     def test_mayo_2(self):
         self.generic_deterministic_test(Mayo2, 1)
 
+# Generate random vector values. If you want to generate many of them, increase
+# count
 class TestRandomTestValues(unittest.TestCase):
     def generic_random_test(self, mayo_ins, count):
         for _ in range(count):
