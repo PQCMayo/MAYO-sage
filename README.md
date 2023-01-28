@@ -1,6 +1,10 @@
 # MAYO-sage
 
+![MAYO-sage workflow](https://github.com/PQCMayo/MAYO-sage/actions/workflows/python-app.yml/badge.svg)
+
 This is the sage implementation of our MAYO scheme. Learn about it on our [website](https://pqmayo.org/).
+
+*Warning*: This code is a research prototype. Do not use it in production.
 
 ## Requirements
 
