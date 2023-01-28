@@ -3,6 +3,11 @@
 
 F16 = GF(16, names=('x',))
 
+# Turns an 8 bit abcdefgh int into a 32-bit int 000a000b000c000d000e000f000g000h
+explode_table = [ int("".join([ "".join(x) for x in zip("00000000","00000000","00000000",bin(i+256)[3:])]),2) for i in range(256) ]
+# inverse of explode
+implode_dict = { explode_table[i]:i for i in range(256)}
+
 def decode_vec(t, l):
     t = [(t[i//2] >> i % 2 * 4) & 0xf for i in range(2 * len(t))]
     v = vector(map(F16.fetch_int, t))
@@ -31,9 +36,8 @@ def decode_matrix(t, rows, columns):
 
     return As
 
-# not used in impelementation, only for testing decode_matrix
+# Not used in "main" implementation, only for testing decode_matrix
 def encode_matrix(mat, rows, columns):
-
     els = []
     for i in range(rows):
         for j in range(columns):
@@ -45,10 +49,7 @@ def encode_matrix(mat, rows, columns):
     bs = encode_vec(els)
     return bytes(bs)
 
-# turns an 8 bit abcdefgh int into a 32-bit int 000a000b000c000d000e000f000g000h
-explode_table = [ int("".join([ "".join(x) for x in zip("00000000","00000000","00000000",bin(i+256)[3:])]),2) for i in range(256) ]
-
-# take a tuple of four m-bit integers and outputs a vector of m field elements
+# Takes a tuple of four m-bit integers and outputs a vector of m field elements
 def unbitslice_m_vec(tuple,m):
     assert len(tuple) == 4
     d0,d1,d2,d3 = tuple
@@ -63,10 +64,7 @@ def unbitslice_m_vec(tuple,m):
 
     return decode_vec(t,m)
 
-# inverse of explode
-implode_dict = { explode_table[i]:i for i in range(256)}
-
-# take a vector of m field elements and output a tuple of four m-bit integers
+# Takes a vector of m field elements and output a tuple of four m-bit integers
 def bitslice_m_vec(vec):
     assert len(vec) %32 == 0
     m = len(vec)
@@ -83,11 +81,11 @@ def bitslice_m_vec(vec):
 
     return (d0,d1,d2,d3)
 
-
-"""
-decode a string to a matrices of bitsliced vectors
-"""
 def partial_decode_matrices(t, m, rows, columns, triangular):
+    """
+    decode a string to a matrices of bitsliced vectors
+    """
+
     assert m % 32 == 0
     bytes_per_vec = m//2
     bytes_per_deg = m//8
@@ -134,11 +132,10 @@ def decode_matrices(t, m, rows, columns, triangular):
 
     return As
 
-
-"""
-encode set of m matrices to a matrix of bitsliced vectors
-"""
 def partial_encode_matrices(matrices, m, rows, columns, triangular):
+    """
+    encode set of m matrices to a matrix of bitsliced vectors
+    """
     assert m % 32 == 0
     bytes_per_deg = m//8
 
@@ -147,8 +144,6 @@ def partial_encode_matrices(matrices, m, rows, columns, triangular):
         assert rows == columns
         for i in range(rows):
             for j in range(i, columns):
-                # This will fail with t += int(matrices[i][j][_sage_const_0 ]).to_bytes(bytes_per_deg, byteorder='little')
-                # OverflowError: int too big to convert
                 t += int(matrices[i][j][0]).to_bytes(bytes_per_deg, byteorder='little')
                 t += int(matrices[i][j][1]).to_bytes(bytes_per_deg, byteorder='little')
                 t += int(matrices[i][j][2]).to_bytes(bytes_per_deg, byteorder='little')
@@ -165,7 +160,6 @@ def partial_encode_matrices(matrices, m, rows, columns, triangular):
 
 
 def encode_matrices(mat, m, rows, columns, triangular):
-
     matrices = [ [None for _ in range(columns)] for _ in range(rows)]
 
     if triangular:
@@ -178,7 +172,6 @@ def encode_matrices(mat, m, rows, columns, triangular):
                 matrices[i][j] = bitslice_m_vec([mat[k][i,j] for k in range(m)])
 
     return partial_encode_matrices(matrices, m, rows, columns, triangular)
-
 
 def bitsliced_add(veca, vecb):
     a0,a1,a2,a3 = veca
@@ -255,7 +248,7 @@ def bitsliced_matrices_add(matricesa,matricesb):
 
     return Out
 
-def Upper(p, rows):
+def upper(p, rows):
     for j in range(0, rows):
         for k in range(j+1, rows):
             p[j, k] += p[k, j]
@@ -263,8 +256,7 @@ def Upper(p, rows):
 
     return p
 
-def bitsliced_Upper(matrices):
-
+def bitsliced_upper(matrices):
     rows = len(matrices)
     for j in range(0, rows):
         for k in range(j+1, rows):

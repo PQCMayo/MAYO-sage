@@ -23,10 +23,10 @@ try:
            partial_decode_matrices, \
            bitsliced_mul_add
     from sagelib.mayo \
-    import SetupMAYO, \
+    import setupMayo, \
            Mayo1, \
            Mayo2, \
-           PrintVersion
+           printVersion
 except ImportError as e:
     sys.exit("Error loading preprocessed sage files. Try running `make setup && make clean pyfiles`. Full error: " + e)
 
@@ -109,8 +109,10 @@ def write_json(new_data, filename='data.json'):
 
 def generic_test(mayo_ins, det):
     if (det == True):
+        print()
         print("Running Tests for deterministic for: " + mayo_ins.name)
     else:
+        print()
         print("Running Tests for random for: " + mayo_ins.name)
 
     print("with: " + mayo_ins.set_name)
@@ -238,6 +240,7 @@ class TestRandomTestValues(unittest.TestCase):
 
 if __name__ == "__main__":
     print("Running all tests for version:")
+    printVersion()
 
     init = []
     fp = open(path + "/vectors-det.json", 'wt')
@@ -247,5 +250,4 @@ if __name__ == "__main__":
     json.dump(init, fp)
     fp.close()
 
-    PrintVersion()
     unittest.main()

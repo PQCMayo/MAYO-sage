@@ -7,16 +7,12 @@ try:
     import decode_vec, \
            encode_vec, \
            decode_matrix, \
-           encode_matrix, \
            decode_matrices, \
            encode_matrices, \
-           bitslice_m_vec, \
-           unbitslice_m_vec, \
            partial_encode_matrices, \
            partial_decode_matrices, \
-           bitsliced_mul_add, \
-           Upper, \
-           bitsliced_Upper, \
+           upper, \
+           bitsliced_upper, \
            bitsliced_matrices_add, \
            bitsliced_matrices_matrix_mul, \
            bitsliced_matrix_matrices_mul
@@ -91,7 +87,7 @@ DEFAULT_PARAMETERS = {
     },
 }
 
-class MAYO:
+class Mayo:
     def __init__(self, parameter_set):
         self.set_name = str(parameter_set)
         self.name = parameter_set["name"]
@@ -181,7 +177,7 @@ class MAYO:
         #   P(3) ← Upper(−O^(T)P_i^(1) O − O^(T)P_i^((2))
         p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
         for i in range(self.m):
-            p3[i] = Upper(- o.transpose()*p1[i]*o - o.transpose()*p2[i], self.o)
+            p3[i] = upper(- o.transpose()*p1[i]*o - o.transpose()*p2[i], self.o)
 
         cpk = seed_pk + encode_matrices(p3, self.m, self.o, self.o, triangular=True) # cpk ← seedpk ∥ EncodeP(3)({P_i^(3)}i∈[m])
         csk = seed_sk # csk ← seedsk
@@ -216,7 +212,7 @@ class MAYO:
         p1o_p2 = bitsliced_matrices_add(bitsliced_matrices_matrix_mul(p1,o),p2)
         # compute p3
         p3 = bitsliced_matrix_matrices_mul(o.transpose(), p1o_p2)
-        p3 = bitsliced_Upper(p3)
+        p3 = bitsliced_upper(p3)
 
         cpk = seed_pk + partial_encode_matrices(p3, self.m, self.o, self.o, triangular=True)
         csk = seed_sk
@@ -383,7 +379,7 @@ class MAYO:
 
             # r ← Decode_vec(ko, V [k * v_bytes : k * v_bytes + ⌈ko log(q)/8⌉])
             r = decode_vec(V[self.k*self.v_bytes:], self.k*self.o)
-            x = self.sample_solution(A, y, r) # x ← SampleSolution(A, y, r)
+            x = self._sample_solution(A, y, r) # x ← SampleSolution(A, y, r)
             assert(A*x == y)
             if x is not None:
                 break
@@ -406,21 +402,26 @@ class MAYO:
         assert len(sig) == self.sig_bytes
         assert len(epk) == self.epk_bytes
 
-        salt = sig[:self.salt_bytes]
-        sig = sig[self.salt_bytes:]
-
+        # {P_i^(1)}_{i ∈ m} ← Decode_P(1) (pk[0 : P1_bytes])
         p1 = decode_matrices(epk[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
-
+        # {P_i^(2)}_{i ∈ m} ← Decode_P(1) (pk[P1_bytes : P1_bytes + P2_bytes])
         p2 = decode_matrices(epk[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
-
+        # {P_i^(3)}_{i ∈ m} ← Decode_P(1) (pk[P1 bytes + P2 bytes : P1 bytes + P2 bytes + P3 bytes])
         p3 = decode_matrices(epk[self.P1_bytes+self.P2_bytes:self.P1_bytes+self.P2_bytes+self.P3_bytes],
                         self.m, self.o, self.o, triangular=True)
 
+        salt = sig[:self.salt_bytes]
+        sig = sig[self.salt_bytes:]
+
+        # t ← Decodevec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
+        # s ← Decodevec(kn, sig)
         s = decode_vec(sig, self.n*self.k)
 
+        # for i from 0 to (k − 1) do
+        #    s_i ← s[i * n : (i + 1) * n]
         s = [s[i*self.n:(i+1)*self.n] for i in range(self.k)]
 
         # put p matrices together
@@ -443,12 +444,15 @@ class MAYO:
                 # convert to polynomial
                 u = self.fx(list(u))
 
+                # y ← y + E^(ell) * u
                 y = y + vector(z**ell * u)
 
+                # ell ← ell + 1
                 ell = ell + 1
+
         return y == t
 
-    def EF(self,B):
+    def _ef(self,B):
         B = copy(B)
         assert B.nrows() == self.m
         assert B.ncols() == self.k*self.o + 1
@@ -489,7 +493,7 @@ class MAYO:
                 pivot_col += 1
         return B
 
-    def sample_solution(self, A, y, r):
+    def _sample_solution(self, A, y, r):
         """
         takes as input a matrix A in F_q^{m x n} of rank m with n >= m,
         a vector y in F_q^m, and a vector r in F_q^n
@@ -512,7 +516,7 @@ class MAYO:
         y -= A*r
 
         Augmented_matrix = A.augment(matrix(self.m,1,y))
-        Augmented_matrix = self.EF(Augmented_matrix)
+        Augmented_matrix = self._ef(Augmented_matrix)
 
         A = Augmented_matrix[:,0:self.k*self.o]
         y = Augmented_matrix.column(self.k*self.o)
@@ -535,15 +539,15 @@ class MAYO:
 
         return x
 
-def SetupMAYO(params_type):
+def setupMayo(params_type):
     if (params_type == ""):
       return None
 
-    return MAYO(DEFAULT_PARAMETERS[params_type])
+    return Mayo(DEFAULT_PARAMETERS[params_type])
 
-def PrintVersion():
+def printVersion():
     print(VERSION)
 
 # Initialise with default parameters
-Mayo1 = MAYO(DEFAULT_PARAMETERS["mayo_1"])
-Mayo2 = MAYO(DEFAULT_PARAMETERS["mayo_2"])
+Mayo1 = Mayo(DEFAULT_PARAMETERS["mayo_1"])
+Mayo2 = Mayo(DEFAULT_PARAMETERS["mayo_2"])
