@@ -321,8 +321,8 @@ class Mayo:
 
         for ctr in range(256): # for ctr from 0 to 255 do
             V = shake_256(msg + salt + seed_sk +
-                          bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes)) # V ← SHAKE256(M || salt || seedsk || ctr, k * v_bytes + ⌈ko log(q)/8⌉)
-
+                          bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes)) 
+            # V ← SHAKE256(M || salt || seedsk || ctr, k * v_bytes + ⌈ko log(q)/8⌉)
 
             # for i from 0 to k − 1 do
             #   v_i ← Decode_vec(n − o, V[i * v_bytes, (i + 1) * v_bytes])
@@ -391,9 +391,10 @@ class Mayo:
         for i in range(self.k):
             sig[i*self.n:(i+1)*self.n] = vector(list(v[i] + o *
                                                      x[i*self.o:(i+1)*self.o])+list(x[i*self.o:(i+1)*self.o]))
-        return salt + encode_vec(sig) + bytes(msg)
+        return encode_vec(sig) + salt + bytes(msg)
 
     def verify(self, sig, msg, epk):
+        # TODO: msg is included in sig, so we don't need it as an extra argument
         """
         takes as input a message M , an expanded
         public key pk, a signature sig outputs 1 (invalid) or 0 (valid)
@@ -412,8 +413,8 @@ class Mayo:
         p3 = decode_matrices(epk[self.P1_bytes+self.P2_bytes:self.P1_bytes+self.P2_bytes+self.P3_bytes],
                         self.m, self.o, self.o, triangular=True)
 
-        salt = sig[:self.salt_bytes]
-        sig = sig[self.salt_bytes:]
+        salt = sig[(self.n*self.k)/2:((self.n*self.k)/2 + self.salt_bytes)]
+        sig = sig[:(self.n*self.k)/2]
 
         # t ← Decodevec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
         t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
