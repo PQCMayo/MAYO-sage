@@ -173,7 +173,7 @@ def generic_test(mayo_ins, det):
 
     start_time = timeit.default_timer()
     # Sign a message with the public key
-    msg = b'1234'
+    msg = bytes.fromhex("D81C4D8D734FCBFBEADE3D3F8A039FAA2A2C9957E835AD55B22E75BF57BB556AC8")
     sig = mayo_ins.sign(msg, esk)
     assert (len(sig) == mayo_ins.sig_bytes + len(msg))
     print("Time taking signing:")
