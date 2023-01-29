@@ -1,3 +1,4 @@
 *.sage.py
 __pycache__/
 sagelib/
+vectors/vectors.json
