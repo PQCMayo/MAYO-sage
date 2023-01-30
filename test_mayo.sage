@@ -146,6 +146,10 @@ def generic_test(mayo_ins, det):
     assert len(esk) == mayo_ins.esk_bytes
     print("Time taking generating and expanding keys:")
     print(timeit.default_timer() - start_time)
+    print("Sizes:")
+    print("Size of public key:", len(cpk))
+    print("Size of secret key:", len(csk))
+    print()
 
     if (bit_slicing == True):
         if (det == True):
@@ -178,6 +182,9 @@ def generic_test(mayo_ins, det):
     assert (len(sig) == mayo_ins.sig_bytes + len(msg))
     print("Time taking signing:")
     print(timeit.default_timer() - start_time)
+    print("Sizes:")
+    print("Size of signature:", len(sig))
+    print()
 
     start_time = timeit.default_timer()
     # Verify the signature on the given message
