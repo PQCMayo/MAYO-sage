@@ -17,7 +17,7 @@ sagelib/%.py: %.sage
 # If we need any submodules, etc.
 setup:
 
-run:
+run: pyfiles
 	sage mayo.sage
 
 run-python:
