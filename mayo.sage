@@ -349,7 +349,7 @@ class Mayo:
             # for i from 0 to (k − 1) do
             #     for j from i to (k − 1) do
             for i in range(self.k):
-                for j in range(i, self.k):
+                for j in range(self.k-1, i-1, -1):
                     u = vector(F16, self.m)
                     for a in range(self.m):
                         if i == j:
@@ -434,7 +434,7 @@ class Mayo:
         ell = 0
         y = vector(F16, self.m)
         for i in range(self.k):
-            for j in range(i, self.k):
+            for j in range(self.k-1,i-1,-1):
                 u = vector(F16, self.m)
                 for a in range(self.m):
                     if i == j:
