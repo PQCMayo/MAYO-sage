@@ -26,6 +26,9 @@ run-python:
 test: pyfiles
 	sage test_mayo.sage
 
+params-check: pyfiles
+	sage parameter_check.sage
+
 vectors: pyfiles
 	@echo "Removing vectors folder, if present"
 	@rm -rf vectors
