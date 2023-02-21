@@ -74,6 +74,9 @@ DEFAULT_PARAMETERS = {
         "o": 9,
         "k": 8,
         "q": 16,
+        "sk_salt_bytes": 24,
+        "pk_bytes": 16,
+        "digest_bytes": 32,
         "f": z**64 + x**3*z**3 + x*z**2 + x**3
     },
     "mayo_2": {
@@ -83,6 +86,21 @@ DEFAULT_PARAMETERS = {
         "o": 18,
         "k": 4,
         "q": 16,
+        "sk_salt_bytes": 24,
+        "pk_bytes": 16,
+        "digest_bytes": 32,
+        "f": z**64 + x**3*z**3 + x*z**2 + x**3
+    },
+    "mayo_3": {
+        "name": "mayo3",
+        "n": 135,
+        "m": 128,
+        "o": 13,
+        "k": 11,
+        "q": 16,
+        "sk_salt_bytes": 40,
+        "pk_bytes": 16,
+        "digest_bytes": 64,
         "f": z**64 + x**3*z**3 + x*z**2 + x**3
     },
 }
@@ -113,9 +131,10 @@ class Mayo:
         self.P2_bytes = math.ceil(self.m*(self.n - self.o)*self.o*self.q_bytes)
         self.P3_bytes = math.ceil(self.m*math.comb((self.o+1), 2)*self.q_bytes)
 
-        self.sk_seed_bytes = 32
-        self.pk_seed_bytes = 16
-        self.salt_bytes = 16
+        self.sk_seed_bytes = parameter_set["sk_salt_bytes"]
+        self.pk_seed_bytes = parameter_set["sk_salt_bytes"] # always the same
+        self.salt_bytes = parameter_set["sk_salt_bytes"]
+        self.digest_bytes = parameter_set["digest_bytes"]
 
         self.sig_bytes = math.ceil(
             self.k * self.n * self.q_bytes) + self.salt_bytes
@@ -167,6 +186,7 @@ class Mayo:
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
         o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o ← Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
+        # TODO: use 4r-aes-128-ctr
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← 4R-AES-128-CTR(seedpk, P1_bytes + P2_bytes)
 
         p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
@@ -232,6 +252,7 @@ class Mayo:
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
         o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o ← Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
+        # TODO: change to AES
         p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← 4R-AES-128-CTR(seedpk, P1_bytes + P2_bytes)
 
         p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
@@ -315,14 +336,21 @@ class Mayo:
         l = decode_matrices(esk[self.sk_seed_bytes + self.O_bytes + self.P1_bytes:],
                        self.m, self.n-self.o, self.o, triangular=False)
 
-        # t ← Decode_vec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
-        salt = self.random_bytes(self.salt_bytes)
-        t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
+        # hash the message
+        # M_digest ← SHAKE256(M, digest_bytes)
+        h_msg = shake_256(msg).digest(int(self.digest_bytes))
+        # R ← 0_{R_bytes} or R ← B^{R_bytes}
+        r = self.random_bytes(self.salt_bytes) # TODO: this can be optionally zero
+        # salt ← SHAKE256(M_digest || R || seed_sk, salt_bytes)
+        salt = shake_256(h_msg + r + seed_sk).digest(int(self.salt_bytes))
+
+        # t ← Decode_vec(m, SHAKE256(M_digest || salt, ⌈mlog(q)/8⌉))
+        t = decode_vec(shake_256(h_msg + salt).digest(self.m_bytes), self.m)
 
         for ctr in range(256): # for ctr from 0 to 255 do
-            V = shake_256(msg + salt + seed_sk +
-                          bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes)) 
-            # V ← SHAKE256(M || salt || seedsk || ctr, k * v_bytes + ⌈ko log(q)/8⌉)
+            # V ← SHAKE256(M_digest || salt || seedsk || ctr, k * v_bytes + ⌈ko log(q)/8⌉)
+            V = shake_256(h_msg + salt + seed_sk +
+                          bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes))
 
             # for i from 0 to k − 1 do
             #   v_i ← Decode_vec(n − o, V[i * v_bytes, (i + 1) * v_bytes])
@@ -416,8 +444,11 @@ class Mayo:
         salt = sig[(self.n*self.k)/2:((self.n*self.k)/2 + self.salt_bytes)]
         sig = sig[:(self.n*self.k)/2]
 
+        # hash the message
+        # M_digest ← SHAKE256(M, digest_bytes)
+        h_msg = shake_256(msg).digest(int(self.digest_bytes))
         # t ← Decodevec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
-        t = decode_vec(shake_256(msg + salt).digest(self.m_bytes), self.m)
+        t = decode_vec(shake_256(h_msg + salt).digest(self.m_bytes), self.m)
         # s ← Decodevec(kn, sig)
         s = decode_vec(sig, self.n*self.k)
 
@@ -552,3 +583,4 @@ def printVersion():
 # Initialise with default parameters
 Mayo1 = Mayo(DEFAULT_PARAMETERS["mayo_1"])
 Mayo2 = Mayo(DEFAULT_PARAMETERS["mayo_2"])
+Mayo3 = Mayo(DEFAULT_PARAMETERS["mayo_3"])
