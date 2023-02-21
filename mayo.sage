@@ -18,6 +18,8 @@ try:
            bitsliced_matrix_matrices_mul
     from sagelib.aes256_ctr_drbg \
     import AES256_CTR_DRBG
+    from sagelib.aes128_ctr_drbg \
+    import AES128_CTR_DRBG
 except ImportError as e:
     print("Error importing AES CTR DRBG. Have you tried installing requirements?")
     print(f"ImportError: {e}\n")
@@ -144,7 +146,7 @@ class Mayo:
         self.P3_bytes = math.ceil(self.m*math.comb((self.o+1), 2)*self.q_bytes)
 
         self.sk_seed_bytes = parameter_set["sk_salt_bytes"]
-        self.pk_seed_bytes = parameter_set["sk_salt_bytes"] # always the same
+        self.pk_seed_bytes = parameter_set["pk_bytes"] # always the same
         self.salt_bytes = parameter_set["sk_salt_bytes"]
         self.digest_bytes = parameter_set["digest_bytes"]
 
@@ -199,7 +201,9 @@ class Mayo:
         o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o ← Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
         # TODO: use 4r-aes-128-ctr
-        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← 4R-AES-128-CTR(seedpk, P1_bytes + P2_bytes)
+        tmp_r = AES128_CTR_DRBG(seed_pk)
+        p = tmp_r.random_bytes(self.P1_bytes + self.P2_bytes)
+        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← 4R-AES-128-CTR(seedpk, P1_bytes + P2_bytes)
 
         p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i∈[m]) ← Decode_(P(1))(p[0 : P1_bytes])
@@ -229,8 +233,9 @@ class Mayo:
         o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
                        self.O_bytes], self.n-self.o, self.o)
 
-
-        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+        tmp_r = AES128_CTR_DRBG(seed_pk)
+        p = tmp_r.random_bytes(self.P1_bytes + self.P2_bytes)
+        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
         p1 = partial_decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
@@ -264,8 +269,9 @@ class Mayo:
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
         o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o ← Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
-        # TODO: change to AES
-        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← 4R-AES-128-CTR(seedpk, P1_bytes + P2_bytes)
+        tmp_r = AES128_CTR_DRBG(seed_pk)
+        p = tmp_r.random_bytes(self.P1_bytes + self.P2_bytes)
+        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← 4R-AES-128-CTR(seedpk, P1_bytes + P2_bytes)
 
         p1 = decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i∈[m]) ← Decode_(P(1))(p[0 : P1_bytes])
@@ -296,7 +302,9 @@ class Mayo:
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
         o = decode_matrix(o_bytestring, self.n-self.o, self.o)
 
-        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+        tmp_r = AES128_CTR_DRBG(seed_pk)
+        p = tmp_r.random_bytes(self.P1_bytes + self.P2_bytes)
+        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
         p1 = partial_decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
@@ -327,7 +335,9 @@ class Mayo:
         seed_pk = cpk[:self.pk_seed_bytes]
         p3 = cpk[self.pk_seed_bytes:]
 
-        p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
+        tmp_r = AES128_CTR_DRBG(seed_pk)
+        p = tmp_r.random_bytes(self.P1_bytes + self.P2_bytes)
+        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
         return p + p3
 
