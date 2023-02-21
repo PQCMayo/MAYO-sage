@@ -93,6 +93,18 @@ DEFAULT_PARAMETERS = {
     },
     "mayo_3": {
         "name": "mayo3",
+        "n": 101,
+        "m": 96,
+        "o": 11,
+        "k": 10,
+        "q": 16,
+        "sk_salt_bytes": 32,
+        "pk_bytes": 16,
+        "digest_bytes": 48,
+        "f": z**96 + x*z**3 + x*z + x
+    },
+    "mayo_4": {
+        "name": "mayo4",
         "n": 135,
         "m": 128,
         "o": 13,
@@ -101,7 +113,7 @@ DEFAULT_PARAMETERS = {
         "sk_salt_bytes": 40,
         "pk_bytes": 16,
         "digest_bytes": 64,
-        "f": z**64 + x**3*z**3 + x*z**2 + x**3
+        "f": z**128 + x*z**4 + x**2*z**3 + x**3*z + x**2
     },
 }
 
@@ -419,7 +431,7 @@ class Mayo:
         for i in range(self.k):
             sig[i*self.n:(i+1)*self.n] = vector(list(v[i] + o *
                                                      x[i*self.o:(i+1)*self.o])+list(x[i*self.o:(i+1)*self.o]))
-        return encode_vec(sig) + salt + bytes(msg)
+        return encode_vec(sig) + salt + msg # TODO: we should remove msg from here
 
     def verify(self, sig, msg, epk):
         # TODO: msg is included in sig, so we don't need it as an extra argument
@@ -442,19 +454,20 @@ class Mayo:
                         self.m, self.o, self.o, triangular=True)
 
         salt = sig[(self.n*self.k)/2:((self.n*self.k)/2 + self.salt_bytes)]
-        sig = sig[:(self.n*self.k)/2]
+        #sig = sig[:(self.n*self.k)/2]
 
-        # hash the message
-        # M_digest ← SHAKE256(M, digest_bytes)
-        h_msg = shake_256(msg).digest(int(self.digest_bytes))
-        # t ← Decodevec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
-        t = decode_vec(shake_256(h_msg + salt).digest(self.m_bytes), self.m)
         # s ← Decodevec(kn, sig)
         s = decode_vec(sig, self.n*self.k)
 
         # for i from 0 to (k − 1) do
         #    s_i ← s[i * n : (i + 1) * n]
         s = [s[i*self.n:(i+1)*self.n] for i in range(self.k)]
+
+        # hash the message
+        # M_digest ← SHAKE256(M, digest_bytes)
+        h_msg = shake_256(msg).digest(int(self.digest_bytes))
+        # t ← Decodevec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
+        t = decode_vec(shake_256(h_msg + salt).digest(self.m_bytes), self.m)
 
         # put p matrices together
         p = [ block_matrix( [[p1[a], p2[a]], [matrix(F16, self.o, self.n-self.o), p3[a]]]) for a in range(self.m) ]
@@ -584,3 +597,4 @@ def printVersion():
 Mayo1 = Mayo(DEFAULT_PARAMETERS["mayo_1"])
 Mayo2 = Mayo(DEFAULT_PARAMETERS["mayo_2"])
 Mayo3 = Mayo(DEFAULT_PARAMETERS["mayo_3"])
+Mayo4 = Mayo(DEFAULT_PARAMETERS["mayo_4"])

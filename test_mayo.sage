@@ -26,6 +26,8 @@ try:
     import setupMayo, \
            Mayo1, \
            Mayo2, \
+           Mayo3, \
+           Mayo4, \
            printVersion
 except ImportError as e:
     sys.exit("Error loading preprocessed sage files. Try running `make setup && make clean pyfiles`. Full error: " + e)
@@ -244,6 +246,12 @@ class TestRandomTestValues(unittest.TestCase):
 
     def test_mayo_2(self):
         self.generic_random_test(Mayo2, 2)
+
+    def test_mayo_3(self):
+        self.generic_random_test(Mayo3, 1)
+
+    #def test_mayo_4(self):
+    #    self.generic_random_test(Mayo4, 1)
 
 if __name__ == "__main__":
     print("Running all tests for version:")
