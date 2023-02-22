@@ -451,7 +451,7 @@ class Mayo:
         p3 = decode_matrices(epk[self.P1_bytes+self.P2_bytes:self.P1_bytes+self.P2_bytes+self.P3_bytes],
                         self.m, self.o, self.o, triangular=True)
 
-        salt = sig[int((self.n*self.k)*self.q_bytes):int(((self.n*self.k)*self.q_bytes + self.salt_bytes))]
+        salt = sig[self.sig_bytes-self.salt_bytes:self.sig_bytes]
         #sig = sig[:(self.n*self.k)/2]
 
         # s ← Decodevec(kn, sig)

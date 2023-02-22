@@ -17,7 +17,8 @@ def decode_vec(t, l):
     return v
 
 def encode_vec(v):
-    #assert len(v) % 2 == 0
+    if len(v) % 2 == 1:
+        v  = vector(F16, v.list() + [ F16(0) ])
     bs = []
     for i in range(len(v)//2):
         bs += [v[i*2].integer_representation() |
