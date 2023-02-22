@@ -92,8 +92,8 @@ DEFAULT_PARAMETERS = {
         "digest_bytes": 48,
         "f": z**96 + x*z**3 + x*z + x
     },
-    "mayo_4": {
-        "name": "mayo4",
+    "mayo_5": {
+        "name": "mayo5",
         "n": 133,
         "m": 128,
         "o": 12,
@@ -595,4 +595,4 @@ def printVersion():
 Mayo1 = Mayo(DEFAULT_PARAMETERS["mayo_1"])
 Mayo2 = Mayo(DEFAULT_PARAMETERS["mayo_2"])
 Mayo3 = Mayo(DEFAULT_PARAMETERS["mayo_3"])
-Mayo4 = Mayo(DEFAULT_PARAMETERS["mayo_4"])
+Mayo5 = Mayo(DEFAULT_PARAMETERS["mayo_5"])
