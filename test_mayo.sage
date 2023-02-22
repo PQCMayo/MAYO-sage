@@ -250,8 +250,8 @@ class TestRandomTestValues(unittest.TestCase):
     def test_mayo_3(self):
         self.generic_random_test(Mayo3, 1)
 
-    #def test_mayo_4(self):
-    #    self.generic_random_test(Mayo4, 1)
+    def test_mayo_4(self):
+        self.generic_random_test(Mayo4, 1)
 
 if __name__ == "__main__":
     print("Running all tests for version:")
