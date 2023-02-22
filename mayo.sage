@@ -85,7 +85,7 @@ DEFAULT_PARAMETERS = {
         "n": 99,
         "m": 96,
         "o": 10,
-        "k": 10, #works for that, but not for 11
+        "k": 11, #works for that, but not for 11
         "q": 16,
         "sk_salt_bytes": 32,
         "pk_bytes": 16,
@@ -451,7 +451,7 @@ class Mayo:
         p3 = decode_matrices(epk[self.P1_bytes+self.P2_bytes:self.P1_bytes+self.P2_bytes+self.P3_bytes],
                         self.m, self.o, self.o, triangular=True)
 
-        salt = sig[(self.n*self.k)/2:((self.n*self.k)/2 + self.salt_bytes)]
+        salt = sig[int((self.n*self.k)*self.q_bytes):int(((self.n*self.k)*self.q_bytes + self.salt_bytes))]
         #sig = sig[:(self.n*self.k)/2]
 
         # s ← Decodevec(kn, sig)
