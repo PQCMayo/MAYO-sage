@@ -15,7 +15,7 @@ def xor_bytes(a, b):
 # Params taken from https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf
 class AES128_CTR_DRBG:
     def __init__(self, seed=None, personalization=b""):
-        self.seed_length = 16 # TODO: Check is this need to be 32 or 16
+        self.seed_length = 32
         self.reseed_interval = 2**48
         self.key = bytes([0])*16
         self.V   = bytes([0])*16
