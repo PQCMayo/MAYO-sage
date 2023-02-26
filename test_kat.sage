@@ -58,21 +58,21 @@ class TestDeterministicDRBGTestValues(unittest.TestCase):
             parsed_data = parse_kat_data(kat_data)
 
             for data in parsed_data.values():
-                seed, pk, sk, msg, sm = data.values()
+                seed, msg, pk, sk, sm = data.values()
 
                 # Seed DRBG with KAT seed
                 Mayo.set_drbg_seed(seed)
 
                 # Assert keygen matches
-                _pk, _sk = Mayo.compact_key_gen()
+                _sk, _pk = Mayo.compact_key_gen()
                 self.assertEqual(pk, _pk)
                 self.assertEqual(sk, _sk)
 
-                epk = mayo_ins.expand_pk(cpk)
-                esk = mayo_ins.expand_sk(csk)
+                epk = Mayo.expand_pk(_pk)
+                esk = Mayo.expand_sk(_sk)
 
                 # Assert signature matches
-                sig = mayo_ins.sign(msg, esk)
+                sig = Mayo.sign(msg, esk)
                 self.assertEqual(sig, sm)
 
     def test_mayo1_known_answer(self):
