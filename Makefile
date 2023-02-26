@@ -36,6 +36,9 @@ vectors: pyfiles
 	@mkdir -p vectors
 	sage test_mayo.sage
 
+kat-test: pyfiles
+	sage test_kat.sage
+
 .PHONY: clean
 clean:
 	rm -rf sagelib *.pyc *.sage.py *.log __pycache__

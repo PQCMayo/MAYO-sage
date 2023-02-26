@@ -35,6 +35,14 @@ In order to test the library, run:
    make test
 ```
 
+## Testing against the KAT
+
+In order to test the KAT of the library, run:
+
+```
+   make kat-test
+```
+
 ## Vectors
 
 To generate the vectors, run:
