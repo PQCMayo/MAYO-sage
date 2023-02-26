@@ -234,6 +234,12 @@ class TestDeterministicTestValues(unittest.TestCase):
     def test_mayo_2(self):
         self.generic_deterministic_test(Mayo2, 1)
 
+    def test_mayo_3(self):
+        self.generic_deterministic_test(Mayo3, 1)
+
+    def test_mayo_5(self):
+        self.generic_deterministic_test(Mayo5, 1)
+
 # Generate random vector values. If you want to generate many of them, increase
 # count
 class TestRandomTestValues(unittest.TestCase):
