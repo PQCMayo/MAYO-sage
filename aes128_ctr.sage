@@ -5,13 +5,6 @@ import os
 from Cryptodome.Cipher import AES
 from sage.cpython.string import str_to_bytes
 
-def xor_bytes(a, b):
-    """
-    XOR two byte arrays, assume that they are
-    of the same length
-    """
-    return bytes(a^^b for a,b in zip(a,b))
-
 class AES128_CTR:
     def __init__(self, key=None, out_len=0):
         self.out_length = out_len
