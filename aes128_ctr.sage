@@ -21,9 +21,6 @@ class AES128_CTR:
         out = b""
         nonce = bytes([0])*8
         cipher = AES.new(self.key, AES.MODE_CTR, nonce=nonce)
-        while len(out) != int(self.out_length):
-            out += cipher.encrypt(self.V)
-            self.__increment_counter()
-
+        out = cipher.encrypt(bytes([0])*self.out_length)
         output_bytes = out[:int(self.out_length)]
         return output_bytes
