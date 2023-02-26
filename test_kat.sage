@@ -70,17 +70,22 @@ class TestDeterministicDRBGTestValues(unittest.TestCase):
 
                 epk = mayo_ins.expand_pk(cpk)
                 esk = mayo_ins.expand_sk(csk)
-                # Assert signature matches
 
+                # Assert signature matches
                 sig = mayo_ins.sign(msg, esk)
                 self.assertEqual(sig, sm)
-                #self.assertEqual(ss, _ss)
-
-                # Assert decapsulation matches
-                #__ss = Kyber.dec(ct, sk)
 
     def test_mayo1_known_answer(self):
         return self.generic_test_mayo_known_answer(Mayo1, "KAT/PQCsignKAT_24_MAYO_1.rsp")
+
+    def test_mayo1_known_answer(self):
+        return self.generic_test_mayo_known_answer(Mayo2, "KAT/PQCsignKAT_24_MAYO_2.rsp")
+
+    def test_mayo1_known_answer(self):
+        return self.generic_test_mayo_known_answer(Mayo3, "KAT/PQCsignKAT_32_MAYO_3.rsp")
+
+    def test_mayo1_known_answer(self):
+        return self.generic_test_mayo_known_answer(Mayo5, "KAT/PQCsignKAT_40_MAYO_5.rsp")
 
 if __name__ == "__main__":
     print("Running KAT tests:")
