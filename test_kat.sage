@@ -64,7 +64,7 @@ class TestDeterministicDRBGTestValues(unittest.TestCase):
                 Mayo.set_drbg_seed(seed)
 
                 # Assert keygen matches
-                _sk, _pk = Mayo.compact_key_gen()
+                _sk, _pk = Mayo.compact_key_gen_bitsliced()
                 self.assertEqual(pk, _pk)
                 self.assertEqual(sk, _sk)
 
@@ -74,6 +74,8 @@ class TestDeterministicDRBGTestValues(unittest.TestCase):
                 # Assert signature matches
                 sig = Mayo.sign(msg, esk)
                 self.assertEqual(sig, sm)
+
+            print("Success for: " + Mayo.name)
 
     def test_mayo1_known_answer(self):
         return self.generic_test_mayo_known_answer(Mayo1, "KAT/PQCsignKAT_24_MAYO_1.rsp")
@@ -89,6 +91,7 @@ class TestDeterministicDRBGTestValues(unittest.TestCase):
 
 if __name__ == "__main__":
     print("Running KAT tests:")
+    print("This process is slow")
 
     init = []
     unittest.main()
