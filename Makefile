@@ -20,9 +20,6 @@ setup:
 run: pyfiles
 	sage mayo.sage
 
-run-python:
-	sage --python mayo.py
-
 test: pyfiles
 	sage test_mayo.sage
 

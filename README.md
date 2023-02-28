@@ -20,11 +20,10 @@ In order to natively build, run, test and benchmark the library, you will need t
 
 ## Building and running
 
-In order to run, you can either type:
+In order to run, you can type:
 
 ```
    make run (pure sage version)
-   make run-python (python/sage version)
 ```
 
 ## Testing
