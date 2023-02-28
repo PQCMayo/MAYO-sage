@@ -1,6 +1,7 @@
 # MAYO-sage
 
 ![MAYO-sage workflow](https://github.com/PQCMayo/MAYO-sage/actions/workflows/python-app.yml/badge.svg)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 This is the sage implementation of our MAYO scheme. Learn about it on our [website](https://pqmayo.org/).
 
