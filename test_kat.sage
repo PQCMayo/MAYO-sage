@@ -49,8 +49,6 @@ def parse_kat_data(data):
         }
     return parsed_data
 
-# Generate deterministic vector values. If you want to generate many of them, increase
-# count
 class TestDeterministicDRBGTestValues(unittest.TestCase):
     def generic_test_mayo_known_answer(self, Mayo, filename):
         with open(filename) as f:
