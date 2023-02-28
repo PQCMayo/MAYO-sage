@@ -51,7 +51,7 @@ assert (z**64 + x**3*z**3 + x*z**2 + x**3).is_irreducible()
 assert (z**96 + x*z**3 + x*z + x).is_irreducible()
 assert (z**128 + x*z**4 + x**2*z**3 + x**3*z + x**2).is_irreducible()
 
-# The parameters are:
+# The parameters for the MAYO variants. They are:
 # q (the size of the finite field F_q), m (the number of multivariate quadratic polynomials in the public key),
 # n (the number of variables in the multivariate quadratic polynomials in the public key),
 # o (the dimension of the oil space), k (the whipping parameter)
@@ -85,7 +85,7 @@ DEFAULT_PARAMETERS = {
         "n": 99,
         "m": 96,
         "o": 10,
-        "k": 11, #works for that, but not for 11
+        "k": 11,
         "q": 16,
         "sk_salt_bytes": 32,
         "pk_bytes": 16,
@@ -134,7 +134,7 @@ class Mayo:
 
         self.sk_seed_bytes = parameter_set["sk_salt_bytes"]
         self.salt_bytes = parameter_set["sk_salt_bytes"]
-        self.pk_seed_bytes = parameter_set["pk_bytes"] # always the same
+        self.pk_seed_bytes = parameter_set["pk_bytes"]
         self.digest_bytes = parameter_set["digest_bytes"]
 
         self.sig_bytes = math.ceil(
@@ -180,29 +180,28 @@ class Mayo:
         are compact representations of a secret key and public key.
         """
 
-        seed_sk = self.random_bytes(self.sk_seed_bytes) # seed_sk $←− B^(sk_seed bytes)
-        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes)) # S ← SHAKE256(seedsk, pk seed bytes + O bytes)
-        seed_pk = s[0:self.pk_seed_bytes] # seed_pk ← s[0 : pk_seed_bytes]
+        seed_sk = self.random_bytes(self.sk_seed_bytes) # seed_sk $<- B^(sk_seed bytes)
+        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes)) # S <- SHAKE256(seedsk, pk seed bytes + O bytes)
+        seed_pk = s[0:self.pk_seed_bytes] # seed_pk <- s[0 : pk_seed_bytes]
 
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
-        o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o ← Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
+        o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o <- Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
         ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
-        p = ctr.aes_ctr_gen()
-        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← AES-128-CTR(seedpk, P1_bytes + P2_bytes)
+        p = ctr.aes_ctr_gen() # p <- AES-128-CTR(seedpk, P1_bytes + P2_bytes)
 
         p1 = decode_matrices(p[0:self.P1_bytes], self.m, self.n -
-                        self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i∈[m]) ← Decode_(P(1))(p[0 : P1_bytes])
+                        self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i in [m]) <- Decode_(P(1))(p[0 : P1_bytes])
         p2 = decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
-                        self.m, self.n-self.o, self.o, triangular=False) # {P_i^(2)}_(i∈[m]) ← Decode_(P(2))(p[P1_bytes : P1_bytes + P2_bytes])
+                        self.m, self.n-self.o, self.o, triangular=False) # {P_i^(2)}_(i in [m]) <- Decode_(P(2))(p[P1_bytes : P1_bytes + P2_bytes])
         # for i from 0 to m − 1 do
-        #   P(3) ← Upper(−O^(T)P_i^(1) O − O^(T)P_i^((2))
+        #   P(3) <- Upper(−O^(T)P_i^(1) O − O^(T)P_i^((2))
         p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
         for i in range(self.m):
             p3[i] = upper(- o.transpose()*p1[i]*o - o.transpose()*p2[i], self.o)
 
-        cpk = seed_pk + encode_matrices(p3, self.m, self.o, self.o, triangular=True) # cpk ← seedpk || EncodeP(3)({P_i^(3)}i∈[m])
-        csk = seed_sk # csk ← seedsk
+        cpk = seed_pk + encode_matrices(p3, self.m, self.o, self.o, triangular=True) # cpk <- seedpk || EncodeP(3)({P_i^(3)}i in [m])
+        csk = seed_sk # csk <- seedsk
         return csk, cpk
 
     def compact_key_gen_bitsliced(self):
@@ -210,7 +209,6 @@ class Mayo:
         outputs a pair (csk, cpk) in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
         are compact representations of a secret key and public key
         """
-        # F16.<y> = GF(16)
         seed_sk = self.random_bytes(self.sk_seed_bytes)
 
         s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
@@ -219,11 +217,8 @@ class Mayo:
         o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
                        self.O_bytes], self.n-self.o, self.o)
 
-        #tmp_r = AES128_CTR_DRBG(seed_pk)
-        #p = tmp_r.random_bytes(self.P1_bytes + self.P2_bytes)
         ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
         p = ctr.aes_ctr_gen()
-        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
         p1 = partial_decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
@@ -250,21 +245,20 @@ class Mayo:
         """
         assert len(csk) == self.csk_bytes
 
-        seed_sk = csk[0:self.sk_seed_bytes] # seedsk ← csk[0 : sk seed bytes]
-        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes)) # s ← SHAKE256(seedsk, pk_seed_bytes + o_bytes)
-        seed_pk = s[0:self.pk_seed_bytes] # seed_pk ← s[0 : pk seed bytes]
+        seed_sk = csk[0:self.sk_seed_bytes] # seedsk <- csk[0 : sk seed bytes]
+        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes)) # s <- SHAKE256(seedsk, pk_seed_bytes + o_bytes)
+        seed_pk = s[0:self.pk_seed_bytes] # seed_pk <- s[0 : pk seed bytes]
 
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
-        o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o ← Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
+        o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o <- Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
         ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
-        p = ctr.aes_ctr_gen()
-        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes)) # p ← AES-128-CTR(seedpk, P1_bytes + P2_bytes)
+        p = ctr.aes_ctr_gen() # p <- AES-128-CTR(seedpk, P1_bytes + P2_bytes)
 
         p1 = decode_matrices(p[0:self.P1_bytes], self.m, self.n -
-                        self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i∈[m]) ← Decode_(P(1))(p[0 : P1_bytes])
+                        self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i in [m]) <- Decode_(P(1))(p[0 : P1_bytes])
         p2 = decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
-                        self.m, self.n-self.o, self.o, triangular=False) # {P_i^(2)}_(i∈[m]) ← Decode_(P(2))(p[P1_bytes : P1_bytes + P2_bytes])
+                        self.m, self.n-self.o, self.o, triangular=False) # {P_i^(2)}_(i in [m]) <- Decode_(P(2))(p[P1_bytes : P1_bytes + P2_bytes])
 
         # for i from 0 to (m − 1) do
         # L_i = (P_i^(1) + P_i^((1)T)) o + P_i^(2)
@@ -292,7 +286,6 @@ class Mayo:
 
         ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
         p = ctr.aes_ctr_gen()
-        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
         p1 = partial_decode_matrices(p[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
@@ -320,12 +313,11 @@ class Mayo:
         """
         assert len(cpk) == self.cpk_bytes
 
-        seed_pk = cpk[0:self.pk_seed_bytes] # seedpk ← cpk[0 : pk_seed_bytes]
+        seed_pk = cpk[0:self.pk_seed_bytes] # seedpk <- cpk[0 : pk_seed_bytes]
         p3 = cpk[self.pk_seed_bytes:self.pk_seed_bytes+self.P3_bytes] # cpk[pk_seed_bytes : pk_seed_bytes + P3_bytes]
 
         ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
         p = ctr.aes_ctr_gen()
-        #p = shake_256(seed_pk).digest(int(self.P1_bytes + self.P2_bytes))
 
         return p + p3 #epk
 
@@ -335,38 +327,38 @@ class Mayo:
         input, and outputs a signature sig in B^{sig_bytes}
         """
 
-        seed_sk = esk[0:self.sk_seed_bytes] # seed_sk ← sk[0 : sk seed bytes]
-        # o ← Decode_o(sk[sk_seed bytes : sk_seed_bytes + O_bytes])
+        seed_sk = esk[0:self.sk_seed_bytes] # seed_sk <- sk[0 : sk seed bytes]
+        # o <- Decode_o(sk[sk_seed bytes : sk_seed_bytes + O_bytes])
         o = decode_matrix(esk[self.sk_seed_bytes:self.sk_seed_bytes + self.O_bytes], self.n-self.o, self.o)
 
-        # {P_i^(1)}_{i ∈ m} ← Decode_P(1) (sk[sk_seed_bytes + O_bytes : sk_seed_bytes + O_bytes + P1_bytes])
+        # {P_i^(1)}_{i in m} <- Decode_P(1) (sk[sk_seed_bytes + O_bytes : sk_seed_bytes + O_bytes + P1_bytes])
         p1 = decode_matrices(esk[self.sk_seed_bytes + self.O_bytes:self.sk_seed_bytes +
                         self.O_bytes + self.P1_bytes], self.m, self.n-self.o, self.n-self.o, triangular=True)
-        # {Li}_{i∈m} ← Decode_L(sk[sk_seed_bytes + O_bytes + P1_bytes : sk_bytes])
+        # {Li}_{i in m} <- Decode_L(sk[sk_seed_bytes + O_bytes + P1_bytes : sk_bytes])
         l = decode_matrices(esk[self.sk_seed_bytes + self.O_bytes + self.P1_bytes:self.esk_bytes],
                        self.m, self.n-self.o, self.o, triangular=False)
 
         # hash the message
-        # M_digest ← SHAKE256(M, digest_bytes)
+        # M_digest <- SHAKE256(M, digest_bytes)
         h_msg = shake_256(msg).digest(int(self.digest_bytes))
-        # R ← 0_{R_bytes} or R ← B^{R_bytes}
+        # R <- 0_{R_bytes} or R <- B^{R_bytes}
         r_salt = self.random_bytes(self.salt_bytes) # TODO: this can be optionally zero
-        # salt ← SHAKE256(M_digest || R || seed_sk, salt_bytes)
+        # salt <- SHAKE256(M_digest || R || seed_sk, salt_bytes)
         salt = shake_256(h_msg + r_salt + seed_sk).digest(int(self.salt_bytes))
 
-        # t ← Decode_vec(m, SHAKE256(M_digest || salt, ⌈mlog(q)/8⌉))
+        # t <- Decode_vec(m, SHAKE256(M_digest || salt, ⌈mlog(q)/8⌉))
         t = decode_vec(shake_256(h_msg + salt).digest(self.m_bytes), self.m)
 
         for ctr in range(256): # for ctr from 0 to 255 do
-            # V ← SHAKE256(M_digest || salt || seedsk || ctr, k * v_bytes + ⌈ko log(q)/8⌉)
+            # V <- SHAKE256(M_digest || salt || seedsk || ctr, k * v_bytes + ⌈ko log(q)/8⌉)
             V = shake_256(h_msg + salt + seed_sk +
                           bytes([ctr])).digest(int(self.k*self.v_bytes + self.r_bytes))
 
             # for i from 0 to k − 1 do
-            #   v_i ← Decode_vec(n − o, V[i * v_bytes, (i + 1) * v_bytes])
-            #   M_i ← 0_{m×o} ∈ F_q^{m×o}
+            #   v_i <- Decode_vec(n − o, V[i * v_bytes, (i + 1) * v_bytes])
+            #   M_i <- 0_{m x o} in F_q^{m x o}
             #   for j from 0 to (m − 1) do
-            #     M_i[j,:] ← v_i^(T)
+            #     M_i[j,:] <- v_i^(T)
             v = [vector(F16, self.n-self.o) for _ in range(self.k)]
             M = [matrix(F16, self.m, self.o) for _ in range(self.k)]
             for i in range(self.k):
@@ -375,15 +367,15 @@ class Mayo:
                 for j in range(self.m):
                     M[i][j, :] = v[i]*l[j]
 
-            # r ← Decode_vec(ko, V [k * v_bytes : k * v_bytes + ⌈ko log(q)/8⌉])
+            # r <- Decode_vec(ko, V [k * v_bytes : k * v_bytes + ⌈ko log(q)/8⌉])
             r = decode_vec(V[self.k*self.v_bytes:self.k*self.v_bytes+ self.r_bytes], self.k*self.o)
 
             # compute v_i*P1 for all i
             vip = [ [v[i]*p1[a] for a in range(self.m)] for i in range(self.k) ]
 
-            # A ← 0_{m×ko} ∈ F_q^{m×ko}
+            # A <- 0_{m x ko} in F_q^{m x ko}
             A = matrix(F16, self.m, self.k*self.o)
-            # y ← t, ell ← 0
+            # y <- t, ell <- 0
             y = t
             ell = 0
 
@@ -400,12 +392,12 @@ class Mayo:
 
                     # convert to polysample_solutionnomial
                     u = self.fx(list(u))
-                    # y ← y − z^ell * u
+                    # y <- y − z^ell * u
                     y = y - vector(z**ell * u)
 
                     # TODO: prettify this
 
-                    # A[:, i * o : (i + 1) * o] ← A[:, i * o : (i + 1) * o] + E^{ell}M_{j}
+                    # A[:, i * o : (i + 1) * o] <- A[:, i * o : (i + 1) * o] + E^{ell}M_{j}
                     tmp_x = [z**ell * self.fx(M[j][:, a].list()) for a in range(self.o)]
                     tmp_y = matrix([list(v) for v in tmp_x])
                     A[:, i*self.o:(i+1)*self.o] = A[:, i *
@@ -413,19 +405,19 @@ class Mayo:
                     if i != j:
                         tmp_x = [z**ell * self.fx(M[i][:, a].list()) for a in range(self.o)]
                         tmp_y = matrix([list(v) for v in tmp_x])
-                        # A[:, j * o : (j + 1) * o] ← A[:, j * o : (j + 1) * o] + E^{ell}M_{i}
+                        # A[:, j * o : (j + 1) * o] <- A[:, j * o : (j + 1) * o] + E^{ell}M_{i}
                         A[:, j*self.o:(j+1)*self.o] = A[:, j *
                                                         self.o:(j+1)*self.o] + tmp_y.transpose()
                     ell = ell + 1
 
-            x = self._sample_solution(A, y, r) # x ← SampleSolution(A, y, r)
+            x = self._sample_solution(A, y, r) # x <- SampleSolution(A, y, r)
             assert(A*x == y)
             if x is not None:
                 break
 
-        # sig ← 0_{kn}
+        # sig <- 0_{kn}
         # for i from 0 to (k − 1) do
-        # sig[i * n : (i + 1) * n] ← (v_i + Ox[i * o : (i + 1) * o]) || x[i * o : (i + 1) * o]
+        # sig[i * n : (i + 1) * n] <- (v_i + Ox[i * o : (i + 1) * o]) || x[i * o : (i + 1) * o]
         sig = vector(F16, self.k*self.n)
         for i in range(self.k):
             sig[i*self.n:(i+1)*self.n] = vector(list(v[i] + o *
@@ -433,7 +425,7 @@ class Mayo:
         return encode_vec(sig) + salt + msg # TODO: we should remove msg from here
 
     def verify(self, sig, msg, epk):
-        # TODO: msg is included in sig, so we don't need it as an extra argument
+        # TODO: msg is included in sig, we don't need it as an extra argument
         """
         takes as input a message M , an expanded
         public key pk, a signature sig outputs 1 (invalid) or 0 (valid)
@@ -442,30 +434,29 @@ class Mayo:
         assert len(sig) == self.sig_bytes
         assert len(epk) == self.epk_bytes
 
-        # {P_i^(1)}_{i ∈ m} ← Decode_P(1) (pk[0 : P1_bytes])
+        # {P_i^(1)}_{i in m} <- Decode_P(1) (pk[0 : P1_bytes])
         p1 = decode_matrices(epk[:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True)
-        # {P_i^(2)}_{i ∈ m} ← Decode_P(1) (pk[P1_bytes : P1_bytes + P2_bytes])
+        # {P_i^(2)}_{i in m} <- Decode_P(1) (pk[P1_bytes : P1_bytes + P2_bytes])
         p2 = decode_matrices(epk[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False)
-        # {P_i^(3)}_{i ∈ m} ← Decode_P(1) (pk[P1 bytes + P2 bytes : P1 bytes + P2 bytes + P3 bytes])
+        # {P_i^(3)}_{i in m} <- Decode_P(1) (pk[P1 bytes + P2 bytes : P1 bytes + P2 bytes + P3 bytes])
         p3 = decode_matrices(epk[self.P1_bytes+self.P2_bytes:self.P1_bytes+self.P2_bytes+self.P3_bytes],
                         self.m, self.o, self.o, triangular=True)
 
         salt = sig[self.sig_bytes-self.salt_bytes:self.sig_bytes]
-        #sig = sig[:(self.n*self.k)/2]
 
-        # s ← Decodevec(kn, sig)
+        # s <- decode_vec(kn, sig)
         s = decode_vec(sig, self.n*self.k)
 
         # for i from 0 to (k − 1) do
-        #    s_i ← s[i * n : (i + 1) * n]
+        #    s_i <- s[i * n : (i + 1) * n]
         s = [s[i*self.n:(i+1)*self.n] for i in range(self.k)]
 
         # hash the message
-        # M_digest ← SHAKE256(M, digest_bytes)
+        # M_digest <- SHAKE256(M, digest_bytes)
         h_msg = shake_256(msg).digest(int(self.digest_bytes))
-        # t ← Decodevec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
+        # t <- Decodevec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
         t = decode_vec(shake_256(h_msg + salt).digest(self.m_bytes), self.m)
 
         # put p matrices together
@@ -488,10 +479,10 @@ class Mayo:
                 # convert to polynomial
                 u = self.fx(list(u))
 
-                # y ← y + E^(ell) * u
+                # y <- y + E^(ell) * u
                 y = y + vector(z**ell * u)
 
-                # ell ← ell + 1
+                # ell <- ell + 1
                 ell = ell + 1
 
         return y == t
@@ -555,7 +546,6 @@ class Mayo:
             return x + r
 
         # Above is the easy 'SAGE' way. To test if the spec is correct, we implement it below without using A.solve_right
-
         x = r
         y -= A*r
 
