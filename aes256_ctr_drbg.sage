@@ -1,7 +1,8 @@
 #!/usr/bin/sage
 # vim: syntax=python
 
-# Taken from https://github.com/jack4818/kyber-py/blob/main/aes256_ctr_drbg.py
+# AES implementation adapted from https://github.com/jack4818/kyber-py/blob/main/aes256_ctr_drbg.py
+# by Giacomo Pope
 
 import os
 from Cryptodome.Cipher import AES
@@ -14,6 +15,7 @@ def xor_bytes(a, b):
     """
     return bytes(a^^b for a,b in zip(a,b))
 
+# Params taken from https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf
 class AES256_CTR_DRBG:
     def __init__(self, seed=None, personalization=b""):
         self.seed_length = 48
@@ -94,7 +96,7 @@ class AES256_CTR_DRBG:
                 additional += bytes([0]) * (self.seed_length - len(additional))
             self.ctr_drbg_update(additional)
 
-        # Collect bytes!
+        # Collect bytes
         tmp = b""
         cipher = AES.new(self.key, AES.MODE_ECB)
         while len(tmp) < num_bytes:
