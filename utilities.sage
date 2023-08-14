@@ -82,98 +82,57 @@ def bitslice_m_vec(vec):
 
     return (d0,d1,d2,d3)
 
-def partial_decode_matrices(t, m, rows, columns, triangular):
-    """
-    decode a string to a matrices of bitsliced vectors
-    """
-
+def decode_matrices(t, m, rows, columns, triangular):
     assert m % 32 == 0
-    bytes_per_vec = m//2
-    bytes_per_deg = m//8
     bytes_used = 0
 
-    matrices = [ [(0,0,0,0) for _ in range(columns)] for _ in range(rows) ]
     if triangular:
         assert rows == columns
-        assert bytes_per_vec*(rows+1)*rows//2 == len(t)
+        assert (m//2)*(rows+1)*rows//2 == len(t)
+
         As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
             for j in range(i, columns):
-                matrices[i][j] = ( int.from_bytes(t[bytes_used+0*bytes_per_deg:bytes_used+1*bytes_per_deg], byteorder='little'),
-                                   int.from_bytes(t[bytes_used+1*bytes_per_deg:bytes_used+2*bytes_per_deg], byteorder='little'),
-                                   int.from_bytes(t[bytes_used+2*bytes_per_deg:bytes_used+3*bytes_per_deg], byteorder='little'),
-                                   int.from_bytes(t[bytes_used+3*bytes_per_deg:bytes_used+4*bytes_per_deg], byteorder='little'))
-                bytes_used += bytes_per_vec
+                for k in range(m//2):
+                    byte = t[bytes_used]
+                    bytes_used += 1
+                    As[k*2 + 0][i,j] = F16.from_integer(byte & 0xF)
+                    As[k*2 + 1][i,j] = F16.from_integer(byte >> 4)
     else:
-        assert bytes_per_vec*rows*columns == len(t)
+        assert (m//2)*rows*columns == len(t)
         As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
             for j in range(columns):
-                matrices[i][j] = ( int.from_bytes(t[bytes_used+0*bytes_per_deg:bytes_used+1*bytes_per_deg], byteorder='little'),
-                                   int.from_bytes(t[bytes_used+1*bytes_per_deg:bytes_used+2*bytes_per_deg], byteorder='little'),
-                                   int.from_bytes(t[bytes_used+2*bytes_per_deg:bytes_used+3*bytes_per_deg], byteorder='little'),
-                                   int.from_bytes(t[bytes_used+3*bytes_per_deg:bytes_used+4*bytes_per_deg], byteorder='little'))
-                bytes_used += bytes_per_vec
-
-    return matrices
-
-def decode_matrices(t, m, rows, columns, triangular):
-    matrices = partial_decode_matrices(t, m, rows, columns, triangular)
-
-    As = [matrix(F16, rows, columns) for _ in range(m)]
-
-    for i in range(rows):
-        for j in range(columns):
-            if matrices[i][j] is None:
-                continue
-
-            v = unbitslice_m_vec(matrices[i][j], m)
-            for k in range(m):
-                As[k][i,j] = v[k]
-
+                for k in range(m//2):
+                    byte = t[bytes_used]
+                    bytes_used += 1
+                    As[k*2 + 0][i,j] = F16.from_integer(byte & 0xF)
+                    As[k*2 + 1][i,j] = F16.from_integer(byte >> 4)
     return As
 
-def partial_encode_matrices(matrices, m, rows, columns, triangular):
-    """
-    encode set of m matrices to a matrix of bitsliced vectors
-    """
-    assert m % 32 == 0
-    bytes_per_deg = m//8
-
+def encode_matrices(mat, m, rows, columns, triangular):
     t = bytes()
     if triangular:
-        assert rows == columns
         for i in range(rows):
             for j in range(i, columns):
-                t += int(matrices[i][j][0]).to_bytes(bytes_per_deg, byteorder='little')
-                t += int(matrices[i][j][1]).to_bytes(bytes_per_deg, byteorder='little')
-                t += int(matrices[i][j][2]).to_bytes(bytes_per_deg, byteorder='little')
-                t += int(matrices[i][j][3]).to_bytes(bytes_per_deg, byteorder='little')
-        return t
+                for k in range(m//2):
+                    b0 = mat[2*k + 0][i, j].to_integer()
+                    b1 = mat[2*k + 1][i, j].to_integer()
+
+                    t += (b0 + (b1 << 4)).to_bytes()
     else:
+        As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
             for j in range(columns):
-                t += int(matrices[i][j][0]).to_bytes(bytes_per_deg, byteorder='little')
-                t += int(matrices[i][j][1]).to_bytes(bytes_per_deg, byteorder='little')
-                t += int(matrices[i][j][2]).to_bytes(bytes_per_deg, byteorder='little')
-                t += int(matrices[i][j][3]).to_bytes(bytes_per_deg, byteorder='little')
-        return t
+                for k in range(m//2):
+                    b0 = mat[2*k + 0][i, j].to_integer()
+                    b1 = mat[2*k + 1][i, j].to_integer()
+
+                    t += (b0 + (b1 << 4)).to_bytes()
+    return t
 
 
-def encode_matrices(mat, m, rows, columns, triangular):
-    matrices = [ [None for _ in range(columns)] for _ in range(rows)]
-
-    if triangular:
-        for i in range(rows):
-            for j in range(i, columns):
-                matrices[i][j] = bitslice_m_vec([mat[k][i,j] for k in range(m)])
-    else:
-        for i in range(rows):
-            for j in range(columns):
-                matrices[i][j] = bitslice_m_vec([mat[k][i,j] for k in range(m)])
-
-    return partial_encode_matrices(matrices, m, rows, columns, triangular)
-
+# TODO: remove bitsliced arithemtic; it's not used
 def bitsliced_add(veca, vecb):
     a0,a1,a2,a3 = veca
     b0,b1,b2,b3 = vecb

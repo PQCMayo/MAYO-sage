@@ -17,11 +17,8 @@ try:
            encode_matrix, \
            decode_matrices, \
            encode_matrices, \
-           bitslice_m_vec, \
-           unbitslice_m_vec, \
-           partial_encode_matrices, \
-           partial_decode_matrices, \
-           bitsliced_mul_add
+           encode_matrices, \
+           decode_matrices
     from sagelib.mayo \
     import setupMayo, \
            Mayo1, \
@@ -55,31 +52,6 @@ def check_decode_encode(mayo_ins):
     p = s[mayo_ins.O_bytes:mayo_ins.O_bytes + mayo_ins.P1_bytes]
     p1 = decode_matrices(p, mayo_ins.m, mayo_ins.n-mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
     p_check = encode_matrices(p1, mayo_ins.m, mayo_ins.n - mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
-
-    if (bit_slicing == True):
-        # check bitslice_m_vec
-        vec = decode_vec(s[0:mayo_ins.m//2], mayo_ins.m)
-        a,b,c,d = bitslice_m_vec(vec)
-        vec_check = unbitslice_m_vec((a,b,c,d), mayo_ins.m)
-        assert(vec == vec_check)
-
-        # check partial_encode_matrices
-        pp = s[mayo_ins.O_bytes:mayo_ins.O_bytes + mayo_ins.P1_bytes]
-        pp1 = partial_decode_matrices(pp, mayo_ins.m, mayo_ins.n-mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
-        pp_check = partial_encode_matrices(pp1, mayo_ins.m, mayo_ins.n - mayo_ins.o, mayo_ins.n-mayo_ins.o, triangular=True)
-        assert(pp == pp_check)
-
-        # check bitsliced_mul
-        v = vector([F16.random_element() for _ in range(mayo_ins.m)])
-        bs = bitslice_m_vec(v)
-        a = F16.random_element()
-        out = vector([x*a for x in v])
-        bs_out = bitsliced_mul_add(bs, a, (0,0,0,0))
-        out_check = unbitslice_m_vec(bs_out, mayo_ins.m)
-        assert(out == out_check)
-
-        # ignoring possible half bytes@decode_mat
-        return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check and vec == vec_check and pp == pp_check and out == out_check
 
     return s1 == s_check1 and s1[:-1] == s_check2[:-1] and p == p_check
 
@@ -160,7 +132,7 @@ def generic_test(mayo_ins, det):
 
         start_time = timeit.default_timer()
         # Generate the public and secret key with bitslicing, and check their size
-        csk_bs, cpk_bs = mayo_ins.compact_key_gen_bitsliced()
+        csk_bs, cpk_bs = mayo_ins.compact_key_gen()
         assert (len(csk_bs) == mayo_ins.csk_bytes)
         assert (len(cpk_bs) == mayo_ins.cpk_bytes)
         if (det == True):
@@ -170,11 +142,11 @@ def generic_test(mayo_ins, det):
         # Expand the public and secret key with bitslicing, and check their size
         epk_bs = mayo_ins.expand_pk(cpk)
         assert len(epk_bs) == mayo_ins.epk_bytes
-        esk_bs = mayo_ins.expand_sk_bitsliced(csk)
+        esk_bs = mayo_ins.expand_sk(csk)
         assert len(esk_bs) == mayo_ins.esk_bytes
         assert epk_bs == epk
         assert esk_bs == esk
-        print("Time taking generating and expanding keys (bitsliced):")
+        print("Time taking generating and expanding keys:")
         print(timeit.default_timer() - start_time)
 
     start_time = timeit.default_timer()
