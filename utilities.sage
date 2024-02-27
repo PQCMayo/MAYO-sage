@@ -139,7 +139,7 @@ def encode_matrices(mat, m, rows, columns, triangular):
                     b0 = integer_from_field_elt[mat[2*k + 0][i, j]]
                     b1 = integer_from_field_elt[mat[2*k + 1][i, j]]
 
-                    t += int(b0 + (b1 << 4)).to_bytes(1,"little")
+                    t += int(b0 + (b1 << 4)).to_bytes(1,'little')
     else:
         As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
@@ -148,7 +148,7 @@ def encode_matrices(mat, m, rows, columns, triangular):
                     b0 = integer_from_field_elt[mat[2*k + 0][i, j]]
                     b1 = integer_from_field_elt[mat[2*k + 1][i, j]]
 
-                    t += int(b0 + (b1 << 4)).to_bytes(1,"little")
+                    t += int(b0 + (b1 << 4)).to_bytes(1,'little')
     return t
 
 
