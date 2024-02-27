@@ -31,6 +31,7 @@ F16 = GF(16, names=('x',))
 assert x**4 + x+1 == 0
 R = F16['z']
 (z,) = R._first_ngens(1)
+
 # import itertools
 # F.<x> = GF(16)
 # R.<y> = F[]
@@ -56,7 +57,7 @@ assert (z**128 + x*z**4 + x**2*z**3 + x**3*z + x**2).is_irreducible()
 DEFAULT_PARAMETERS = {
     "mayo_1": {
         "name": "mayo1",
-        "n": 66,
+        "n": 72,
         "m": 64,
         "o": 8,
         "k": 9,
@@ -68,7 +69,7 @@ DEFAULT_PARAMETERS = {
     },
     "mayo_2": {
         "name": "mayo2",
-        "n": 78,
+        "n": 82,
         "m": 64,
         "o": 18,
         "k": 4,
@@ -80,7 +81,7 @@ DEFAULT_PARAMETERS = {
     },
     "mayo_3": {
         "name": "mayo3",
-        "n": 99,
+        "n": 106,
         "m": 96,
         "o": 10,
         "k": 11,
@@ -92,7 +93,7 @@ DEFAULT_PARAMETERS = {
     },
     "mayo_5": {
         "name": "mayo5",
-        "n": 133,
+        "n": 140,
         "m": 128,
         "o": 12,
         "k": 12,

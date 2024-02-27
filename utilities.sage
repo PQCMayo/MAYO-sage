@@ -1,7 +1,27 @@
 #!/usr/bin/sage
 # vim: syntax=python
 
-F16 = GF(16, names=('x',))
+F16.<x> = GF(16)
+
+field_elt_from_integer = {}
+field_elt_from_integer[0] = F16(0)
+field_elt_from_integer[1] = F16(1)
+field_elt_from_integer[2] = F16(x)
+field_elt_from_integer[3] = F16(1 + x)
+field_elt_from_integer[4] = F16(x**2)
+field_elt_from_integer[5] = F16(1 + x**2)
+field_elt_from_integer[6] = F16(x + x**2)
+field_elt_from_integer[7] = F16(1 + x + x**2)
+field_elt_from_integer[8] = F16(x**3)
+field_elt_from_integer[9] = F16(1 + x**3)
+field_elt_from_integer[10] = F16(x + x**3)
+field_elt_from_integer[11] = F16(1 + x + x**3)
+field_elt_from_integer[12] = F16(x**2 + x**3)
+field_elt_from_integer[13] = F16(1 + x**2 + x**3)
+field_elt_from_integer[14] = F16(x + x**2 + x**3)
+field_elt_from_integer[15] = F16(1 + x + x**2 + x**3)
+
+integer_from_field_elt = { felt : i for i, felt in field_elt_from_integer.items() }
 
 # Turns an 8 bit abcdefgh int into a 32-bit int 000a000b000c000d000e000f000g000h
 explode_table = [ int("".join([ "".join(x) for x in zip("00000000","00000000","00000000",bin(i+256)[3:])]),2) for i in range(256) ]
@@ -10,7 +30,7 @@ implode_dict = { explode_table[i]:i for i in range(256)}
 
 def decode_vec(t, l):
     t = [(t[i//2] >> i % 2 * 4) & 0xf for i in range(2 * len(t))]
-    v = vector(map(F16.from_integer, t))
+    v = vector(map(lambda x : field_elt_from_integer[x], t))
 
     if l % 2 == 1:
         v = v[:-1]
@@ -21,8 +41,8 @@ def encode_vec(v):
         v  = vector(F16, v.list() + [ F16(0) ])
     bs = []
     for i in range(len(v)//2):
-        bs += [v[i*2].to_integer() |
-               (v[i*2 + 1].to_integer() << 4)]
+        bs += [integer_from_field_elt[v[i*2]] |
+               (integer_from_field_elt[v[i*2 + 1]] << 4)]
     return bytes(bs)
 
 def decode_matrix(t, rows, columns):
@@ -96,8 +116,8 @@ def decode_matrices(t, m, rows, columns, triangular):
                 for k in range(m//2):
                     byte = t[bytes_used]
                     bytes_used += 1
-                    As[k*2 + 0][i,j] = F16.from_integer(byte & 0xF)
-                    As[k*2 + 1][i,j] = F16.from_integer(byte >> 4)
+                    As[k*2 + 0][i,j] = field_elt_from_integer[byte & 0xF]
+                    As[k*2 + 1][i,j] = field_elt_from_integer[byte >> 4]
     else:
         assert (m//2)*rows*columns == len(t)
         As = [matrix(F16, rows, columns) for _ in range(m)]
@@ -106,8 +126,8 @@ def decode_matrices(t, m, rows, columns, triangular):
                 for k in range(m//2):
                     byte = t[bytes_used]
                     bytes_used += 1
-                    As[k*2 + 0][i,j] = F16.from_integer(byte & 0xF)
-                    As[k*2 + 1][i,j] = F16.from_integer(byte >> 4)
+                    As[k*2 + 0][i,j] = field_elt_from_integer[byte & 0xF]
+                    As[k*2 + 1][i,j] = field_elt_from_integer[byte >> 4]
     return As
 
 def encode_matrices(mat, m, rows, columns, triangular):
@@ -116,19 +136,19 @@ def encode_matrices(mat, m, rows, columns, triangular):
         for i in range(rows):
             for j in range(i, columns):
                 for k in range(m//2):
-                    b0 = mat[2*k + 0][i, j].to_integer()
-                    b1 = mat[2*k + 1][i, j].to_integer()
+                    b0 = integer_from_field_elt[mat[2*k + 0][i, j]]
+                    b1 = integer_from_field_elt[mat[2*k + 1][i, j]]
 
-                    t += (b0 + (b1 << 4)).to_bytes()
+                    t += int(b0 + (b1 << 4)).to_bytes(1,"little")
     else:
         As = [matrix(F16, rows, columns) for _ in range(m)]
         for i in range(rows):
             for j in range(columns):
                 for k in range(m//2):
-                    b0 = mat[2*k + 0][i, j].to_integer()
-                    b1 = mat[2*k + 1][i, j].to_integer()
+                    b0 = integer_from_field_elt[mat[2*k + 0][i, j]]
+                    b1 = integer_from_field_elt[mat[2*k + 1][i, j]]
 
-                    t += (b0 + (b1 << 4)).to_bytes()
+                    t += int(b0 + (b1 << 4)).to_bytes(1,"little")
     return t
 
 
@@ -141,7 +161,7 @@ def bitsliced_add(veca, vecb):
 def bitsliced_mul_add(In, a, Out):
     In0, In1, In2, In3 = In
     Out0, Out1, Out2, Out3 = Out
-    a_int = a.to_integer()
+    a_int = field_elt_from_integer[a]
 
     if a_int & 1:
         Out0 ^^= In0

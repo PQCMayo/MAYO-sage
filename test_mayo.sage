@@ -84,10 +84,10 @@ def write_json(new_data, filename='data.json'):
 def generic_test(mayo_ins, det):
     if (det == True):
         print()
-        print("Running Tests for deterministic for: " + mayo_ins.name)
+        print("Running deterministic tests for: " + mayo_ins.name)
     else:
         print()
-        print("Running Tests for random for: " + mayo_ins.name)
+        print("Running randomized tests for: " + mayo_ins.name)
 
     print("with: " + mayo_ins.set_name)
     vectors = {}
@@ -157,7 +157,7 @@ def generic_test(mayo_ins, det):
     print("Time taking signing:")
     print(timeit.default_timer() - start_time)
     print("Sizes:")
-    print("Size of signature:", len(sig))
+    print("Size of message + signature:", len(sig))
     print()
 
     start_time = timeit.default_timer()
