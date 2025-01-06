@@ -20,7 +20,7 @@ In order to natively build, run, test and benchmark the library, you will need t
   Python3 >= 3.9.7
   pycryptodomex (please, install this version to avoid bugs with pycrypto.
                  Install it on sage by running 'sage --pip install pycryptodomex')
-  Sage
+  Sage >= 10.5
 ```
 
 ## Building and running

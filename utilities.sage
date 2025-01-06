@@ -1,7 +1,7 @@
 #!/usr/bin/sage
 # vim: syntax=python
 
-F16 = GF(16, names=('x',))
+F16.<x> = GF(16)
 
 # Turns an 8 bit abcdefgh int into a 32-bit int 000a000b000c000d000e000f000g000h
 explode_table = [ int("".join([ "".join(x) for x in zip("00000000","00000000","00000000",bin(i+256)[3:])]),2) for i in range(256) ]
@@ -10,7 +10,7 @@ implode_dict = { explode_table[i]:i for i in range(256)}
 
 def decode_vec(t, l):
     t = [(t[i//2] >> i % 2 * 4) & 0xf for i in range(2 * len(t))]
-    v = vector(map(F16.fetch_int, t))
+    v = vector(map(F16._cache.fetch_int, t))
 
     if l % 2 == 1:
         v = v[:-1]
@@ -21,8 +21,8 @@ def encode_vec(v):
         v  = vector(F16, v.list() + [ F16(0) ])
     bs = []
     for i in range(len(v)//2):
-        bs += [v[i*2].integer_representation() |
-               (v[i*2 + 1].integer_representation() << 4)]
+        bs += [v[i*2]._integer_representation() |
+               (v[i*2 + 1]._integer_representation() << 4)]
     return bytes(bs)
 
 def decode_matrix(t, rows, columns):
@@ -182,7 +182,7 @@ def bitsliced_add(veca, vecb):
 def bitsliced_mul_add(In, a, Out):
     In0, In1, In2, In3 = In
     Out0, Out1, Out2, Out3 = Out
-    a_int = a.integer_representation()
+    a_int = a._integer_representation()
 
     if a_int & 1:
         Out0 ^^= In0
