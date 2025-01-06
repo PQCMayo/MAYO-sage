@@ -31,7 +31,7 @@ jobs:
         sudo apt-get install -y make
         sudo apt-get install -y sagemath
         sage --pip install pycryptodomex
-   - name: Check installed versions
+    - name: Check installed versions
       run: |
         # Print Python version
         python --version
