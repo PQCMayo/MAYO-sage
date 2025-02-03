@@ -45,6 +45,6 @@ jobs:
         conda run -n sage sage --version
     - name: Test application
       run: |
-        conda activate sage
         source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sage
         make test-conda
