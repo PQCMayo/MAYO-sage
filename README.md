@@ -7,7 +7,7 @@
 This code is part of a NIST submission for the PQC signatures call.
 ```
 
-This is the sage implementation of our MAYO scheme. Learn about it on our [website](https://pqmayo.org/).
+This is the sage implementation of the round-2 version fo the MAYO scheme. Learn about it on our [website](https://pqmayo.org/).
 
 *Warning*: This code is a research prototype. Do not use it in production.
 
