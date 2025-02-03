@@ -44,7 +44,6 @@ jobs:
         # Print pip version
         pip --version
         # Print SageMath version
-        which sage
         conda list | grep sage
         sage --version
     - name: Test application
