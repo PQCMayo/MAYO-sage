@@ -43,8 +43,6 @@ jobs:
         python --version
         # Print pip version
         pip --version
-        # Print installed pycryptodomex version
-        python -c "import Cryptodome; print('pycryptodomex version:', Cryptodome.__version__)"
         # Print SageMath version
         sage --version
     - name: Test application
