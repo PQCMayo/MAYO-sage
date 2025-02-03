@@ -23,6 +23,9 @@ run: pyfiles
 test: pyfiles
 	sage test_mayo.sage
 
+test-conda: pyfiles
+	conda run -n sage sage test_mayo.sage
+
 params-check: pyfiles
 	sage parameter_check.sage
 
