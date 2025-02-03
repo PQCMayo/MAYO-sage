@@ -16,12 +16,7 @@ try:
            decode_matrix, \
            encode_matrix, \
            decode_matrices, \
-           encode_matrices, \
-           bitslice_m_vec, \
-           unbitslice_m_vec, \
-           partial_encode_matrices, \
-           partial_decode_matrices, \
-           bitsliced_mul_add
+           encode_matrices
     from sagelib.mayo \
     import setupMayo, \
            Mayo1, \
@@ -62,7 +57,7 @@ class TestDeterministicDRBGTestValues(unittest.TestCase):
                 Mayo.set_drbg_seed(seed)
 
                 # Assert keygen matches
-                _sk, _pk = Mayo.compact_key_gen_bitsliced()
+                _sk, _pk = Mayo.compact_key_gen()
                 self.assertEqual(pk, _pk)
                 self.assertEqual(sk, _sk)
 

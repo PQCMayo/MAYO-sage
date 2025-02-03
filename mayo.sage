@@ -9,13 +9,7 @@ try:
            decode_matrix, \
            decode_matrices, \
            encode_matrices, \
-           partial_encode_matrices, \
-           partial_decode_matrices, \
-           upper, \
-           bitsliced_upper, \
-           bitsliced_matrices_add, \
-           bitsliced_matrices_matrix_mul, \
-           bitsliced_matrix_matrices_mul
+           upper
     from sagelib.aes256_ctr_drbg \
     import AES256_CTR_DRBG
     from sagelib.aes128_ctr \
@@ -33,23 +27,6 @@ F16 = GF(16, names=('x',))
 assert x**4 + x+1 == 0
 R = F16['z']
 (z,) = R._first_ngens(1)
-# import itertools
-# F.<x> = GF(16)
-# R.<y> = F[]
-# m = 72
-# for c0 in F:
-#     if c0 in ZZ:
-#         continue
-#     f0 = y^m + c0
-#     for w in range(1,3):
-#         for js in itertools.combinations(list(range(1,m)), w):
-#             f = f0 + sum(y^j for j in js)
-#             if f.is_irreducible():
-#                 print(f)
-
-assert (z**64 + x**3*z**3 + x*z**2 + x**3).is_irreducible()
-assert (z**96 + x*z**3 + x*z + x).is_irreducible()
-assert (z**128 + x*z**4 + x**2*z**3 + x**3*z + x**2).is_irreducible()
 
 # The parameters for the MAYO variants. They are:
 # q (the size of the finite field F_q), m (the number of multivariate quadratic polynomials in the public key),
@@ -58,21 +35,21 @@ assert (z**128 + x*z**4 + x**2*z**3 + x**3*z + x**2).is_irreducible()
 DEFAULT_PARAMETERS = {
     "mayo_1": {
         "name": "mayo1",
-        "n": 66,
-        "m": 64,
+        "n": 86,
+        "m": 78,
         "o": 8,
-        "k": 9,
+        "k": 10,
         "q": 16,
         "sk_salt_bytes": 24,
         "pk_bytes": 16,
         "digest_bytes": 32,
-        "f": z**64 + x**3*z**3 + x*z**2 + x**3
+        "f": z**78 + z**2 + z + x**3
     },
     "mayo_2": {
         "name": "mayo2",
-        "n": 78,
+        "n": 81,
         "m": 64,
-        "o": 18,
+        "o": 17,
         "k": 4,
         "q": 16,
         "sk_salt_bytes": 24,
@@ -82,27 +59,27 @@ DEFAULT_PARAMETERS = {
     },
     "mayo_3": {
         "name": "mayo3",
-        "n": 99,
-        "m": 96,
+        "n": 118,
+        "m": 108,
         "o": 10,
         "k": 11,
         "q": 16,
         "sk_salt_bytes": 32,
         "pk_bytes": 16,
         "digest_bytes": 48,
-        "f": z**96 + x*z**3 + x*z + x
+        "f": z**108 + (x**2+x+1)*z**3 + z**2 + x**3
     },
     "mayo_5": {
         "name": "mayo5",
-        "n": 133,
-        "m": 128,
+        "n": 154,
+        "m": 142,
         "o": 12,
         "k": 12,
         "q": 16,
         "sk_salt_bytes": 40,
         "pk_bytes": 16,
         "digest_bytes": 64,
-        "f": z**128 + x*z**4 + x**2*z**3 + x**3*z + x**2
+        "f": z**142 + z**3 + x**3*z**2 + x**2
     },
 }
 
@@ -127,8 +104,7 @@ class Mayo:
         self.O_bytes = math.ceil((self.n - self.o)*self.o * self.q_bytes)
         self.v_bytes = math.ceil((self.n - self.o) * self.q_bytes)
         self.r_bytes = math.ceil(self.k*self.o*self.q_bytes)
-        self.P1_bytes = math.ceil(
-            self.m*math.comb((self.n-self.o+1), 2) * self.q_bytes)
+        self.P1_bytes = math.ceil(self.m*math.comb((self.n-self.o+1), 2) * self.q_bytes)
         self.P2_bytes = math.ceil(self.m*(self.n - self.o)*self.o * self.q_bytes)
         self.P3_bytes = math.ceil(self.m*math.comb((self.o+1), 2) * self.q_bytes)
 
@@ -194,6 +170,7 @@ class Mayo:
                         self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i in [m]) <- Decode_(P(1))(p[0 : P1_bytes])
         p2 = decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
                         self.m, self.n-self.o, self.o, triangular=False) # {P_i^(2)}_(i in [m]) <- Decode_(P(2))(p[P1_bytes : P1_bytes + P2_bytes])
+
         # for i from 0 to m − 1 do
         #   P(3) <- Upper(−O^(T)P_i^(1) O − O^(T)P_i^((2))
         p3 = [matrix(F16, self.o, self.o) for _ in range(self.m)]
@@ -202,40 +179,6 @@ class Mayo:
 
         cpk = seed_pk + encode_matrices(p3, self.m, self.o, self.o, triangular=True) # cpk <- seedpk || EncodeP(3)({P_i^(3)}i in [m])
         csk = seed_sk # csk <- seedsk
-        return csk, cpk
-
-    def compact_key_gen_bitsliced(self):
-        """
-        outputs a pair (csk, cpk) in B^{csk_bytes} x B^{cpk_bytes}, where csk and cpk
-        are compact representations of a secret key and public key
-        """
-        seed_sk = self.random_bytes(self.sk_seed_bytes)
-
-        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
-        seed_pk = s[:self.pk_seed_bytes]
-
-        o = decode_matrix(s[self.pk_seed_bytes:self.pk_seed_bytes +
-                       self.O_bytes], self.n-self.o, self.o)
-
-        ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
-        p = ctr.aes_ctr_gen()
-
-        p1 = partial_decode_matrices(p[:self.P1_bytes], self.m, self.n -
-                        self.o, self.n-self.o, triangular=True)
-
-        p2 = partial_decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
-                        self.m, self.n-self.o, self.o, triangular=False)
-
-        p3 = [ [ None for _ in range(self.o)] for _ in range(self.o) ]
-
-        # compute p1o + p2
-        p1o_p2 = bitsliced_matrices_add(bitsliced_matrices_matrix_mul(p1,o),p2)
-        # compute p3
-        p3 = bitsliced_matrix_matrices_mul(o.transpose(), p1o_p2)
-        p3 = bitsliced_upper(p3)
-
-        cpk = seed_pk + partial_encode_matrices(p3, self.m, self.o, self.o, triangular=True)
-        csk = seed_sk
         return csk, cpk
 
     def expand_sk(self, csk):
@@ -268,43 +211,6 @@ class Mayo:
 
         # sk = seed_sk || O bytestring || p[0 : P1 bytes] || Encode_L({L_i}i∈[m])
         esk = seed_sk + o_bytestring + p[0:self.P1_bytes] + encode_matrices(l, self.m, self.n-self.o, self.o, triangular=False)
-        return esk
-
-    def expand_sk_bitsliced(self, csk):
-        """
-        takes as input csk, the compact representation of a secret key, and outputs sk in B^{sk_bytes},
-        an expanded representation of the secret key
-        """
-        assert len(csk) == self.csk_bytes
-
-        seed_sk = csk
-        s = shake_256(seed_sk).digest(int(self.pk_seed_bytes + self.O_bytes))
-        seed_pk = s[:self.pk_seed_bytes]
-
-        o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
-        o = decode_matrix(o_bytestring, self.n-self.o, self.o)
-
-        ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
-        p = ctr.aes_ctr_gen()
-
-        p1 = partial_decode_matrices(p[:self.P1_bytes], self.m, self.n -
-                        self.o, self.n-self.o, triangular=True)
-
-        p2 = partial_decode_matrices(p[self.P1_bytes:self.P1_bytes+self.P2_bytes],
-                        self.m, self.n-self.o, self.o, triangular=False)
-
-        # compute (p1 + p1^t)
-        p1_p1t = p1.copy()
-        for i in range(self.n-self.o):
-            p1_p1t[i][i] = (0,0,0,0)
-            for j in range(i+1,self.n-self.o):
-                p1_p1t[j][i] = p1_p1t[i][j]
-
-        # compute (p1 + p1^t)*o + p2
-        l = bitsliced_matrices_add(bitsliced_matrices_matrix_mul(p1_p1t, o), p2)
-
-        esk = seed_sk + o_bytestring + p[:self.P1_bytes] + partial_encode_matrices(l, self.m, self.n-self.o, self.o, triangular=False)
-
         return esk
 
     def expand_pk(self, cpk):
