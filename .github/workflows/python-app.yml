@@ -27,11 +27,12 @@ jobs:
       run: |
         sudo apt-get update
         apt-cache policy sagemath
+        python -m pip install --upgrade pip
         curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" 
         bash Miniforge3-$(uname)-$(uname -m).sh -b
+        conda install mamba -c conda-forge
         mamba create -n sage sage python=3.12
         conda activate sage
-        python -m pip install --upgrade pip
         pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         sudo apt-get install -y make
