@@ -45,4 +45,4 @@ jobs:
         conda run -n sage sage --version
     - name: Test application
       run: |
-        make test-conda
+        conda run -n sage make test-conda
