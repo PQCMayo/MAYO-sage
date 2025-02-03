@@ -5,7 +5,7 @@ name: Python application
 
 on:
   push:
-    branches: [ "main", "MAYO1.1" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -38,7 +38,7 @@ jobs:
         conda run -n sage sage -pip install pycryptodomex
     - name: Check installed versions
       run: |
-        # Print Python version
+        # Print versions
         source $HOME/miniforge3/etc/profile.d/conda.sh
         conda run -n sage python --version
         conda run -n sage pip --version
