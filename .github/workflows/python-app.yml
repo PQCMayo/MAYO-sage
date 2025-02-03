@@ -43,7 +43,6 @@ jobs:
         conda run -n sage python --version
         conda run -n sage pip --version
         conda run -n sage sage --version
-        conda list | grep sage
     - name: Test application
       run: |
         make test
