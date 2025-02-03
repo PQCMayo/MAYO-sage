@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
 
-    runs-on: ubuntu-23.10
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
@@ -27,11 +27,14 @@ jobs:
       run: |
         sudo apt-get update
         apt-cache policy sagemath
+        curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" 
+        bash Miniforge3-$(uname)-$(uname -m).sh
+        mamba create -n sage sage python=3.12
+        conda activate sage
         python -m pip install --upgrade pip
         pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         sudo apt-get install -y make
-        sudo apt-get install -y sagemath
         sage --pip install pycryptodomex
     - name: Check installed versions
       run: |
