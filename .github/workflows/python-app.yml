@@ -30,7 +30,7 @@ jobs:
         python -m pip install --upgrade pip
         curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" 
         bash Miniforge3-$(uname)-$(uname -m).sh -b
-        conda init
+        source ~/miniforge3/etc/profile.d/conda.sh
         conda create -n sage sage python=3.12 -c conda-forge
         conda activate sage
         pip install flake8 pytest
