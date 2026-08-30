@@ -8,12 +8,14 @@ try:
            encode_vec, \
            decode_matrix, \
            decode_matrices, \
+           decode_lambda, \
            encode_matrices, \
            upper
     from sagelib.aes256_ctr_drbg \
     import AES256_CTR_DRBG
     from sagelib.aes128_ctr \
-    import AES128_CTR
+    import aes_128_ctr, \
+           aes_128_ctr_iv
 except ImportError as e:
     print("Error importing AES CTR DRBG. Have you tried installing requirements?")
     print(f"ImportError: {e}\n")
@@ -28,34 +30,91 @@ assert x**4 + x+1 == 0
 R = F16['z']
 (z,) = R._first_ngens(1)
 
+# The whipping schedules. WHIPPING_SCHEDULE[k] is the symmetric k x k matrix Z
+# whose k(k+1)/2 upper diagonal entries are the exponents 0,...,k(k+1)/2-1, so
+# that Z[i,j] = z^WHIPPING_SCHEDULE[k][i][j] in F_q[z]/(f(z)). The schedules are
+# MDS: every square submatrix of Z has full rank. They were found by hashing
+# "MAYO_{k}_{trial}" for trial counting up from 0 until the MDS condition holds.
+WHIPPING_SCHEDULE = {
+    5: [
+        [11, 13,  3,  4,  6],
+        [13,  0, 14, 10,  2],
+        [ 3, 14,  8,  1,  5],
+        [ 4, 10,  1, 12,  9],
+        [ 6,  2,  5,  9,  7],
+    ],
+    10: [
+        [10, 25,  7, 44, 40, 24, 12, 32,  5, 27],
+        [25,  6, 45, 50, 19,  0, 11, 14, 37, 52],
+        [ 7, 45, 51, 16, 42, 30, 53,  8, 21,  4],
+        [44, 50, 16, 15, 39, 26, 48, 54, 23, 34],
+        [40, 19, 42, 39, 22, 33,  1, 35, 41, 18],
+        [24,  0, 30, 26, 33, 13, 46, 17,  2, 47],
+        [12, 11, 53, 48,  1, 46, 36, 20, 49, 43],
+        [32, 14,  8, 54, 35, 17, 20, 38, 29,  9],
+        [ 5, 37, 21, 23, 41,  2, 49, 29,  3, 31],
+        [27, 52,  4, 34, 18, 47, 43,  9, 31, 28],
+    ],
+    11: [
+        [35, 13, 39, 32,  4,  7, 40, 14, 43, 62, 64],
+        [13, 55, 42, 11, 63, 19, 58, 49, 36, 12, 20],
+        [39, 42,  6, 15, 57, 47, 16, 34, 44, 46, 50],
+        [32, 11, 15, 18,  5, 21, 28, 10, 51, 24, 31],
+        [ 4, 63, 57,  5, 38,  0, 56, 29, 54, 60, 23],
+        [ 7, 19, 47, 21,  0, 22, 27, 61,  3, 48,  8],
+        [40, 58, 16, 28, 56, 27, 37, 45, 30,  1, 17],
+        [14, 49, 34, 10, 29, 61, 45, 26, 52, 59, 41],
+        [43, 36, 44, 51, 54,  3, 30, 52, 25,  9,  2],
+        [62, 12, 46, 24, 60, 48,  1, 59,  9, 53, 65],
+        [64, 20, 50, 31, 23,  8, 17, 41,  2, 65, 33],
+    ],
+    12: [
+        [62, 30, 52, 53, 24,  0, 25, 12, 71, 20, 57, 32],
+        [30,  7, 37, 55, 43, 70, 31, 47, 35,  9, 69, 15],
+        [52, 37, 64, 26, 76, 45, 54, 10, 40, 34, 11, 19],
+        [53, 55, 26, 61, 16, 60,  5, 18, 42, 17,  8, 75],
+        [24, 43, 76, 16, 41, 27,  6,  2,  4, 51, 68, 38],
+        [ 0, 70, 45, 60, 27, 63, 22, 49, 23,  1, 21, 48],
+        [25, 31, 54,  5,  6, 22, 14, 29, 44, 65, 77, 72],
+        [12, 47, 10, 18,  2, 49, 29, 58, 67, 59, 39, 56],
+        [71, 35, 40, 42,  4, 23, 44, 67, 33, 73, 36, 74],
+        [20,  9, 34, 17, 51,  1, 65, 59, 73, 28, 46,  3],
+        [57, 69, 11,  8, 68, 21, 77, 39, 36, 46, 50, 13],
+        [32, 15, 19, 75, 38, 48, 72, 56, 74,  3, 13, 66],
+    ],
+}
+
 # The parameters for the MAYO variants. They are:
 # q (the size of the finite field F_q), m (the number of multivariate quadratic polynomials in the public key),
 # n (the number of variables in the multivariate quadratic polynomials in the public key),
-# o (the dimension of the oil space), k (the whipping parameter)
+# o (the dimension of the oil space), k (the whipping parameter),
+# f (the reduction polynomial), Z (the whipping schedule)
 DEFAULT_PARAMETERS = {
     "mayo_1": {
         "name": "mayo1",
-        "n": 86,
-        "m": 78,
+        "n": 88,
+        "m": 80,
         "o": 8,
         "k": 10,
         "q": 16,
         "sk_salt_bytes": 24,
         "pk_bytes": 16,
         "digest_bytes": 32,
-        "f": z**78 + z**2 + z + x**3
+        "f": z**80 + x*z**3 + x**2*z**2 + x,
+        "Z": WHIPPING_SCHEDULE[10]
     },
     "mayo_2": {
         "name": "mayo2",
-        "n": 81,
+        "n": 86,
         "m": 64,
-        "o": 17,
-        "k": 4,
+        "o": 13,
+        "k": 5,
         "q": 16,
         "sk_salt_bytes": 24,
         "pk_bytes": 16,
         "digest_bytes": 32,
-        "f": z**64 + x**3*z**3 + x*z**2 + x**3
+        "f": z**64 + x**3*z**3 + x*z**2 + x**3,
+        "Z": WHIPPING_SCHEDULE[5]
     },
     "mayo_3": {
         "name": "mayo3",
@@ -67,7 +126,8 @@ DEFAULT_PARAMETERS = {
         "sk_salt_bytes": 32,
         "pk_bytes": 16,
         "digest_bytes": 48,
-        "f": z**108 + (x**2+x+1)*z**3 + z**2 + x**3
+        "f": z**108 + (x**2+x+1)*z**3 + z**2 + x**3,
+        "Z": WHIPPING_SCHEDULE[11]
     },
     "mayo_5": {
         "name": "mayo5",
@@ -79,13 +139,16 @@ DEFAULT_PARAMETERS = {
         "sk_salt_bytes": 40,
         "pk_bytes": 16,
         "digest_bytes": 64,
-        "f": z**142 + z**3 + x**3*z**2 + x**2
+        "f": z**142 + z**3 + x**3*z**2 + x**2,
+        "Z": WHIPPING_SCHEDULE[12]
     },
 }
 
 class Mayo:
     def __init__(self, parameter_set):
-        self.set_name = str(parameter_set)
+        # the whipping schedule Z is a k x k matrix; keep it out of the
+        # printable name of the parameter set
+        self.set_name = str({key: value for key, value in parameter_set.items() if key != "Z"})
         self.name = parameter_set["name"]
         self.n = parameter_set["n"]
         self.m = parameter_set["m"]
@@ -95,6 +158,7 @@ class Mayo:
         self.aes = False
 
         self.f = parameter_set["f"]
+        self.Z = parameter_set["Z"]
 
         self.fx = R.quotient_ring(self.f)
 
@@ -112,6 +176,9 @@ class Mayo:
         self.salt_bytes = parameter_set["sk_salt_bytes"]
         self.pk_seed_bytes = parameter_set["pk_bytes"]
         self.digest_bytes = parameter_set["digest_bytes"]
+        # the AES-128 key and IV that expand into Lambda
+        self.lambda_seed_bytes = 32
+        self.Lambda_bytes = self.m*self.n//2
 
         self.sig_bytes = math.ceil(
             self.k * self.n * self.q_bytes) + self.salt_bytes
@@ -122,6 +189,14 @@ class Mayo:
             self.O_bytes + self.P1_bytes + self.P2_bytes
 
         assert self.q == 16
+        assert self.m % 2 == 0
+        assert len(self.Z) == self.k
+        # Z is symmetric and its upper diagonal entries are a permutation of the
+        # exponents 0,...,k(k+1)/2-1
+        assert all(self.Z[i][j] == self.Z[j][i]
+                   for i in range(self.k) for j in range(self.k))
+        assert sorted(self.Z[i][j] for i in range(self.k)
+                      for j in range(i, self.k)) == list(range(self.k*(self.k+1)//2))
 
     def random_bytes(self, len):
         if (self.aes == True):
@@ -163,8 +238,8 @@ class Mayo:
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
         o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o <- Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
-        ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
-        p = ctr.aes_ctr_gen() # p <- AES-128-CTR(seedpk, P1_bytes + P2_bytes)
+        # p <- AES_CTR(seed_pk, P1_bytes + P2_bytes)
+        p = aes_128_ctr(seed_pk, self.P1_bytes + self.P2_bytes)
 
         p1 = decode_matrices(p[0:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i in [m]) <- Decode_(P(1))(p[0 : P1_bytes])
@@ -195,8 +270,8 @@ class Mayo:
         o_bytestring = s[self.pk_seed_bytes:self.pk_seed_bytes + self.O_bytes]
         o = decode_matrix(o_bytestring, self.n-self.o, self.o) # o <- Decode_o(s[pk_seed_bytes : pk_seed_bytes + o_bytes])
 
-        ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
-        p = ctr.aes_ctr_gen() # p <- AES-128-CTR(seedpk, P1_bytes + P2_bytes)
+        # p <- AES_CTR(seed_pk, P1_bytes + P2_bytes)
+        p = aes_128_ctr(seed_pk, self.P1_bytes + self.P2_bytes)
 
         p1 = decode_matrices(p[0:self.P1_bytes], self.m, self.n -
                         self.o, self.n-self.o, triangular=True) # {P_i^(1)}_(i in [m]) <- Decode_(P(1))(p[0 : P1_bytes])
@@ -222,8 +297,8 @@ class Mayo:
         seed_pk = cpk[0:self.pk_seed_bytes] # seedpk <- cpk[0 : pk_seed_bytes]
         p3 = cpk[self.pk_seed_bytes:self.pk_seed_bytes+self.P3_bytes] # cpk[pk_seed_bytes : pk_seed_bytes + P3_bytes]
 
-        ctr = AES128_CTR(seed_pk, self.P1_bytes + self.P2_bytes)
-        p = ctr.aes_ctr_gen()
+        # p <- AES_CTR(seed_pk, P1_bytes + P2_bytes)
+        p = aes_128_ctr(seed_pk, self.P1_bytes + self.P2_bytes)
 
         return p + p3 #epk
 
@@ -252,8 +327,18 @@ class Mayo:
         # salt <- SHAKE256(M_digest || R || seed_sk, salt_bytes)
         salt = shake_256(h_msg + r_salt + seed_sk).digest(int(self.salt_bytes))
 
-        # t <- Decode_vec(m, SHAKE256(M_digest || salt, ⌈mlog(q)/8⌉))
-        t = decode_vec(shake_256(h_msg + salt).digest(self.m_bytes), self.m)
+        # hash <- SHAKE256(M_digest || salt, m/2 + 32)
+        hash_bytes = shake_256(h_msg + salt).digest(int(self.m_bytes + self.lambda_seed_bytes))
+        # t <- Decode_vec(m, hash[0 : m/2])
+        t = decode_vec(hash_bytes[0:self.m_bytes], self.m)
+
+        # Lambda_bytes <- AES_CTR(hash[m/2 : m/2 + 16], hash[m/2 + 16 : m/2 + 32], nm/2)
+        # Lambda_v, Lambda_o <- Decode_Lambda(Lambda_bytes)
+        Lambda = decode_lambda(aes_128_ctr_iv(hash_bytes[self.m_bytes:self.m_bytes+16],
+                                              hash_bytes[self.m_bytes+16:self.m_bytes+self.lambda_seed_bytes],
+                                              self.Lambda_bytes), self.m, self.n)
+        Lambda_v = Lambda[:, 0:self.n-self.o]     # Lambda_v in F_q^{m x (n-o)}
+        Lambda_o = Lambda[:, self.n-self.o:self.n] # Lambda_o in F_q^{m x o}
 
         for ctr in range(256): # for ctr from 0 to 255 do
             # V <- SHAKE256(M_digest || salt || seedsk || ctr, k * v_bytes + ⌈ko log(q)/8⌉)
@@ -273,6 +358,9 @@ class Mayo:
                 for j in range(self.m):
                     M[i][j, :] = v[i]*l[j]
 
+            # M_0 <- M_0 + Lambda_v O + Lambda_o
+            M[0] = M[0] + Lambda_v*o + Lambda_o
+
             # r <- Decode_vec(ko, V [k * v_bytes : k * v_bytes + ⌈ko log(q)/8⌉])
             r = decode_vec(V[self.k*self.v_bytes:self.k*self.v_bytes+ self.r_bytes], self.k*self.o)
 
@@ -281,14 +369,19 @@ class Mayo:
 
             # A <- 0_{m x ko} in F_q^{m x ko}
             A = matrix(F16, self.m, self.k*self.o)
-            # y <- t, ell <- 0
+            # y <- t
             y = t
-            ell = 0
 
             # for i from 0 to (k − 1) do
-            #     for j from (k − 1) to i do
             for i in range(self.k):
-                for j in range(self.k-1, i-1, -1):
+                # y <- y − E_{i0} Lambda_v v_i
+                y = y - vector(z**self.Z[i][0] * self.fx(list(Lambda_v*v[i])))
+
+                #     for j from i to (k − 1) do
+                for j in range(i, self.k):
+                    # E_{ij} is multiplication by z^{Z[i][j]} in F_q[z]/(f(z))
+                    ell = self.Z[i][j]
+
                     u = vector(F16, self.m)
                     for a in range(self.m):
                         if i == j:
@@ -296,14 +389,14 @@ class Mayo:
                         else:
                             u[a] = vip[i][a]*v[j] + vip[j][a]*v[i] # v[i]*p1[a]*v[j] + v[j]*p1[a]*v[i]
 
-                    # convert to polysample_solutionnomial
+                    # convert to polynomial
                     u = self.fx(list(u))
-                    # y <- y − z^ell * u
+                    # y <- y − E_{ij} u
                     y = y - vector(z**ell * u)
 
                     # TODO: prettify this
 
-                    # A[:, i * o : (i + 1) * o] <- A[:, i * o : (i + 1) * o] + E^{ell}M_{j}
+                    # A[:, i * o : (i + 1) * o] <- A[:, i * o : (i + 1) * o] + E_{ij}M_{j}
                     tmp_x = [z**ell * self.fx(M[j][:, a].list()) for a in range(self.o)]
                     tmp_y = matrix([list(v) for v in tmp_x])
                     A[:, i*self.o:(i+1)*self.o] = A[:, i *
@@ -311,15 +404,16 @@ class Mayo:
                     if i != j:
                         tmp_x = [z**ell * self.fx(M[i][:, a].list()) for a in range(self.o)]
                         tmp_y = matrix([list(v) for v in tmp_x])
-                        # A[:, j * o : (j + 1) * o] <- A[:, j * o : (j + 1) * o] + E^{ell}M_{i}
+                        # A[:, j * o : (j + 1) * o] <- A[:, j * o : (j + 1) * o] + E_{ij}M_{i}
                         A[:, j*self.o:(j+1)*self.o] = A[:, j *
                                                         self.o:(j+1)*self.o] + tmp_y.transpose()
-                    ell = ell + 1
 
             x = self._sample_solution(A, y, r) # x <- SampleSolution(A, y, r)
+            if x is None:
+                continue
+            
             assert(A*x == y)
-            if x is not None:
-                break
+            break
 
         # sig <- 0_{kn}
         # for i from 0 to (k − 1) do
@@ -362,8 +456,16 @@ class Mayo:
         # hash the message
         # M_digest <- SHAKE256(M, digest_bytes)
         h_msg = shake_256(msg).digest(int(self.digest_bytes))
-        # t <- Decodevec(m, SHAKE256(M || salt, ⌈mlog(q)/8⌉))
-        t = decode_vec(shake_256(h_msg + salt).digest(self.m_bytes), self.m)
+        # hash <- SHAKE256(M_digest || salt, m/2 + 32)
+        hash_bytes = shake_256(h_msg + salt).digest(int(self.m_bytes + self.lambda_seed_bytes))
+        # t <- Decode_vec(m, hash[0 : m/2])
+        t = decode_vec(hash_bytes[0:self.m_bytes], self.m)
+
+        # Lambda_bytes <- AES_CTR(hash[m/2 : m/2 + 16], hash[m/2 + 16 : m/2 + 32], nm/2)
+        # Lambda <- Decode_Lambda(Lambda_bytes)
+        Lambda = decode_lambda(aes_128_ctr_iv(hash_bytes[self.m_bytes:self.m_bytes+16],
+                                              hash_bytes[self.m_bytes+16:self.m_bytes+self.lambda_seed_bytes],
+                                              self.Lambda_bytes), self.m, self.n)
 
         # put p matrices together
         p = [ block_matrix( [[p1[a], p2[a]], [matrix(F16, self.o, self.n-self.o), p3[a]]]) for a in range(self.m) ]
@@ -371,10 +473,15 @@ class Mayo:
         # compute s_i^T * {P_j}_{j in [m]} for all i
         sip = [ [s[i]*p[a] for a in range(self.m)] for i in range(self.k) ]
 
-        ell = 0
         y = vector(F16, self.m)
         for i in range(self.k):
-            for j in range(self.k-1,i-1,-1):
+            # y <- y + E_{i0} Lambda s_i
+            y = y + vector(z**self.Z[i][0] * self.fx(list(Lambda*s[i])))
+
+            for j in range(i, self.k):
+                # E_{ij} is multiplication by z^{Z[i][j]} in F_q[z]/(f(z))
+                ell = self.Z[i][j]
+
                 u = vector(F16, self.m)
                 for a in range(self.m):
                     if i == j:
@@ -385,11 +492,8 @@ class Mayo:
                 # convert to polynomial
                 u = self.fx(list(u))
 
-                # y <- y + E^(ell) * u
+                # y <- y + E_{ij} * u
                 y = y + vector(z**ell * u)
-
-                # ell <- ell + 1
-                ell = ell + 1
 
         return y == t
 

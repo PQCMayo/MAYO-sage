@@ -5,7 +5,7 @@ name: Python application
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "MAYO_round_3" ]
   pull_request:
     branches: [ "main" ]
 
@@ -35,7 +35,6 @@ jobs:
         conda run -n sage pip install flake8 pytest
         if [ -f requirements.txt ]; then conda run -n sage pip install -r requirements.txt; fi
         conda install -y -n sage make -c conda-forge
-        conda run -n sage sage -pip install pycryptodomex
     - name: Check installed versions
       run: |
         # Print versions

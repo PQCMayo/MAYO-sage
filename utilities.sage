@@ -65,6 +65,18 @@ def encode_matrix(mat, rows, columns):
     bs = encode_vec(els)
     return bytes(bs)
 
+def decode_lambda(t, m, n):
+    assert m % 2 == 0
+    assert len(t) == m*n//2
+
+    # column i of Lambda is DecodeVec(m, t[i*m/2 : (i+1)*m/2]), i.e. Lambda is
+    # parsed in column-major order (unlike decode_matrix, which is row-major)
+    Lambda = matrix(F16, m, n)
+    for i in range(n):
+        Lambda[:, i] = matrix(m, 1, list(decode_vec(t[i*(m//2):(i+1)*(m//2)], m)))
+
+    return Lambda
+
 def decode_matrices(t, m, rows, columns, triangular):
     assert m % 2 == 0
     bytes_used = 0
